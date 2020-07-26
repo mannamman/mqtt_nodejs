@@ -4,11 +4,9 @@ const options={
     qos:1
 };
 
-const ip = "mqtt://192.168.0.85";
+const ip = "mqtt://192.168.219.170";
 
 const client = mqtt.connect(ip);
 
-for(let i=0;i<10;i++){
-    client.publish("test","hello",options);
-}
+client.publish("/test","hello",options);
 client.end();

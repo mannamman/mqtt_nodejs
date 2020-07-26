@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "express": "^4.17.1",
     "mqtt": "^4.0.0",
     "net": "^1.0.2",
     "python-shell": "^2.0.0"
