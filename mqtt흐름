@@ -13,5 +13,7 @@ tx2는 전부 js
 
 Tx2에서는 퍼블리셔와 구독자를 같은 파일에 넣어놓음
 Tx2에서 자체적으로 값을 보내는 일이 없으므로 구독자의 client.on('message'...)를 이용해 그때마다 publish하면 좋음
+connect되면 각각의 토픽마다 subscribe하고 message를 받을때 다른 토피으로 publish
+
 
 
