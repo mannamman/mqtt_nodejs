@@ -1,25 +1,76 @@
-var mqtt = require('mqtt'), url = require('url');
+const mqtt = require('mqtt');
+const mysql = require('mysql');
+const { json } = require('express');
 // Parse
 const ip = '192.168.0.77';
-var url = "mqtt://" + ip;
+const url = "mqtt://" + ip;
+const db = mysql.createConnection({
+    host:'172.17.0.2',
+    user:'namth',
+    port:'3306',
+    password:'',
+    database:'tx2',
+    dateStrings:'date'
+});
 
-var options = {
+db.connect();
+const options = {
     retain:true,
     qos:1
 };
+// complete때만 mqtt는 db쩝속
+const query = (sql)=>{
+  return new Promise((resolve,reject)=>{
+    db.query(sql,(error,result)=>{
+      if(error){
+        throw error
+        reject(error('query error'));
+      }
+      else{
+        resolve(result);
+      }
+    })
+  });
+}
 const topics=['/status/toTx2','/status/toApp','/status/complete','/motor'];
 var client1 = mqtt.connect(url, options);
 var client2 = mqtt.connect(url, options);
+
+const toStr = (message)=>{
+  message = message.toString();
+  return message;
+}
+const toJson = (message)=>{
+  message = JSON.parse(message);
+  
+  return message;
+}
+const makeDic=(order_list)=>{{
+  let tempdic={};
+  for(var i in order_list){
+    if(tempdic[order_list[i]]===undefined){
+      tempdic[order_list[i]] = 1;
+    }
+    else{
+      tempdic[order_list[i]] = tempdic[order_list[i]] + 1;
+    }
+  }
+  return tempdic;
+}}
 
 client1.on('connect', function() { // When connected
   //toTx2에서 메세지가 올때 즉 모니터의 상태변화가 필요할때, toTx2구독
   client1.subscribe(topics[0], function() {
     console.log('subscribe on ',topics[0]);
     
-    // 가정 1상승, 0정지, -1 하강
+    // 가정 1상승, 0정지, 2 하강
     client1.on('message', function(topic, message, packet) {
+      
+      message = toStr(message);
+      console.log(message);
+      
       //일단 1은 봉인시켜놓고 앱에서 주문완료시만 최상단으로 올라가도록
-      if(message==-1){
+      if(message==2){
         console.log('at the toTx2 ',message);
         client1.publish(topics[1],'-1',options);// 앱에게 올라간다고 알림 down
         client1.publish(topics[3],'-1',options);// 모터를 올라가도록 구동
@@ -35,13 +86,6 @@ client1.on('connect', function() { // When connected
       }
     });
   });
-
-  
-
-
-  
-
-
 });
 
 client2.on('connect',()=>{
@@ -49,10 +93,20 @@ client2.on('connect',()=>{
   client2.subscribe(topics[2],()=>{
     console.log('subscribe on ',topics[2]);
     client2.on('message',(topic,message,packet)=>{
-      if(message===1){
-        console.log('at the complete ',message);
-        client2.publish(topics[3],'1',options);// 이러면 최상단으로 올라가야함 /motor
-      }
+      // message는 json형식일 것임
+      message = toStr(message);
+      message = toJson(message);
+      let name = message['name'];
+      //let date = message['date'];
+      let order_list=makeDic(message['order_list']);
+      order_list = JSON.stringify(order_list);
+      //order_list = JSON.parse(order_list);
+      sql = `INSERT INTO mqtt_test ('name','history','date') values ("${name}","${order_list}",now())`;
+      // 비동기 처리
+      query(sql).
+      then(()=>console.log('done')).
+      catch(error=>console.log(error))
+      client2.publish(topics[3],'1',options);// 이러면 최상단으로 올라가야함 /motor
     });
     
   });
