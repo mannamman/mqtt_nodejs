@@ -34,8 +34,8 @@ const query = (sql)=>{
   });
 }
 const topics=['/status/toTx2','/status/wait','/status/complete','/motor'];
-var client1 = mqtt.connect(url, options);
-var client2 = mqtt.connect(url, options);
+var ClientStatus = mqtt.connect(url, options);
+var ClientJson = mqtt.connect(url, options);
 
 const toStr = (message)=>{
   message = message.toString();
@@ -59,13 +59,13 @@ const makeDic=(order_list)=>{{
   return tempdic;
 }}
 
-client1.on('connect', function() { // When connected
+ClientStatus.on('connect', function() { // When connected
   //toTx2에서 메세지가 올때 즉 모니터의 상태변화가 필요할때, toTx2구독
-  client1.subscribe(topics[0], function() {
+  ClientStatus.subscribe(topics[0], function() {
     console.log('subscribe on ',topics[0]);
     
     // 가정 1상승, 0정지, 2 하강
-    client1.on('message', function(topic, message, packet) {
+    ClientStatus.on('message', function(topic, message, packet) {
       
       message = toStr(message);
       console.log(message);
@@ -73,47 +73,40 @@ client1.on('connect', function() { // When connected
       //일단 1은 봉인시켜놓고 앱에서 주문완료시만 최상단으로 올라가도록
       if(message==2){
         console.log('at the toTx2 ',message);
-        client1.publish(topics[1],'2',options);// 앱에게 올라간다고 알림 down
-        client1.publish(topics[3],'2',options);// 모터를 올라가도록 구동
+        ClientStatus.publish(topics[1],'2',options);// 앱에게 올라간다고 알림 down
+        ClientStatus.publish(topics[3],'2',options);// 모터를 올라가도록 구동
       }
       else if(message==0){
         console.log('at the toTx2 ',message);
         //  if longtime promise need
         setTimeout(function() {
         }, 30000);
-        client1.publish(topics[1],'0',options);// 앱에게 멈추었다고 알리면 앱은 http로 얼굴 정보 가져오기
-        client1.publish(topics[3],'0',options);// stop
+        ClientStatus.publish(topics[1],'0',options);// 앱에게 멈추었다고 알리면 앱은 http로 얼굴 정보 가져오기
+        ClientStatus.publish(topics[3],'0',options);// stop
       }
       else{
         console.log('at the toTx2 ',message);
-        client1.publish(topics[1],'1',options)// up; app에게만 알림 따로 못올라가고 앱에서 complete를 받아야지만 올라감
+        ClientStatus.publish(topics[1],'1',options)// up; app에게만 알림 따로 못올라가고 앱에서 complete를 받아야지만 올라감
       }
     });
   });
 });
 
-client2.on('connect',()=>{
+ClientJson.on('connect',()=>{
   // complete를 구독
-  client2.subscribe(topics[2],()=>{
+  ClientJson.subscribe(topics[2],()=>{
     console.log('subscribe on ',topics[2]);
-    client2.on('message',(topic,message,packet)=>{
+    ClientJson.on('message',(topic,message,packet)=>{
       // message는 json형식일 것임
       message = toStr(message);
       message = toJson(message);
       console.log(message);
-      console.log(message['order_list']);
-      console.log(message['order_list']['A']);
-      ////let name = message['name'];
-      //let date = message['date'];
-      ////let order_list=makeDic(message['order_list']);
-      ////order_list = JSON.stringify(order_list);
-      //order_list = JSON.parse(order_list);
-      ////sql = `INSERT INTO mqtt_test ('name','history','date') values ("${name}","${order_list}",now())`;
-      // 비동기 처리
+      //sql = `INSERT INTO mqtt_test ('name','history','date') values ("${name}","${order_list}",now())`;
+      //비동기 처리
       // query(sql).
       // then(()=>console.log('done')).
       // catch(error=>console.log(error))
-      client2.publish(topics[3],'1',options);// 이러면 최상단으로 올라가야함 /motor
+      ClientJson.publish(topics[3],'1',options);// 이러면 최상단으로 올라가야함 /motor
     });
     
   });
