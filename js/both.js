@@ -100,12 +100,15 @@ client2.on('connect',()=>{
       // message는 json형식일 것임
       message = toStr(message);
       message = toJson(message);
-      let name = message['name'];
+      console.log(message);
+      console.log(message['order_list']);
+      console.log(message['order_list']['A']);
+      ////let name = message['name'];
       //let date = message['date'];
-      let order_list=makeDic(message['order_list']);
-      order_list = JSON.stringify(order_list);
+      ////let order_list=makeDic(message['order_list']);
+      ////order_list = JSON.stringify(order_list);
       //order_list = JSON.parse(order_list);
-      sql = `INSERT INTO mqtt_test ('name','history','date') values ("${name}","${order_list}",now())`;
+      ////sql = `INSERT INTO mqtt_test ('name','history','date') values ("${name}","${order_list}",now())`;
       // 비동기 처리
       // query(sql).
       // then(()=>console.log('done')).
