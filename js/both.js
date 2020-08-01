@@ -2,18 +2,19 @@ const mqtt = require('mqtt');
 const mysql = require('mysql');
 const { json } = require('express');
 // Parse
-const ip = '192.168.0.77';
+const ip = '192.168.219.170';
 const url = "mqtt://" + ip;
-const db = mysql.createConnection({
-    host:'172.17.0.2',
-    user:'namth',
-    port:'3306',
-    password:'',
-    database:'tx2',
-    dateStrings:'date'
-});
+let status =['',''];
+// const db = mysql.createConnection({
+//     host:'172.17.0.2',
+//     user:'namth',
+//     port:'3306',
+//     password:'',
+//     database:'tx2',
+//     dateStrings:'date'
+// });
 
-db.connect();
+// db.connect();
 const options = {
     retain:true,
     qos:1
@@ -32,7 +33,7 @@ const query = (sql)=>{
     })
   });
 }
-const topics=['/status/toTx2','/status/toApp','/status/complete','/motor'];
+const topics=['/status/toTx2','/status/wait','/status/complete','/motor'];
 var client1 = mqtt.connect(url, options);
 var client2 = mqtt.connect(url, options);
 
@@ -68,15 +69,18 @@ client1.on('connect', function() { // When connected
       
       message = toStr(message);
       console.log(message);
-      
+      // title -> wait, wait -> face
       //일단 1은 봉인시켜놓고 앱에서 주문완료시만 최상단으로 올라가도록
       if(message==2){
         console.log('at the toTx2 ',message);
-        client1.publish(topics[1],'-1',options);// 앱에게 올라간다고 알림 down
-        client1.publish(topics[3],'-1',options);// 모터를 올라가도록 구동
+        client1.publish(topics[1],'2',options);// 앱에게 올라간다고 알림 down
+        client1.publish(topics[3],'2',options);// 모터를 올라가도록 구동
       }
       else if(message==0){
         console.log('at the toTx2 ',message);
+        //  if longtime promise need
+        setTimeout(function() {
+        }, 30000);
         client1.publish(topics[1],'0',options);// 앱에게 멈추었다고 알리면 앱은 http로 얼굴 정보 가져오기
         client1.publish(topics[3],'0',options);// stop
       }
@@ -103,9 +107,9 @@ client2.on('connect',()=>{
       //order_list = JSON.parse(order_list);
       sql = `INSERT INTO mqtt_test ('name','history','date') values ("${name}","${order_list}",now())`;
       // 비동기 처리
-      query(sql).
-      then(()=>console.log('done')).
-      catch(error=>console.log(error))
+      // query(sql).
+      // then(()=>console.log('done')).
+      // catch(error=>console.log(error))
       client2.publish(topics[3],'1',options);// 이러면 최상단으로 올라가야함 /motor
     });
     
