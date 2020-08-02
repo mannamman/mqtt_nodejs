@@ -1,10 +1,12 @@
 const mqtt = require('mqtt');
 const mysql = require('mysql');
 const { json } = require('express');
+const { PythonShell } = require('python-shell');
 // Parse
-const ip = '192.168.219.170';
+const ip = '192.168.0.117';
 const url = "mqtt://" + ip;
-let status =['',''];
+
+//--------------------db
 // const db = mysql.createConnection({
 //     host:'172.17.0.2',
 //     user:'namth',
@@ -13,30 +15,46 @@ let status =['',''];
 //     database:'tx2',
 //     dateStrings:'date'
 // });
-
 // db.connect();
-const options = {
-    retain:true,
-    qos:1
-};
-// complete때만 mqtt는 db쩝속
-const query = (sql)=>{
-  return new Promise((resolve,reject)=>{
-    db.query(sql,(error,result)=>{
-      if(error){
-        throw error
-        reject(error('query error'));
-      }
-      else{
-        resolve(result);
-      }
-    })
-  });
-}
-const topics=['/status/toTx2','/status/wait','/status/complete','/motor'];
-var ClientStatus = mqtt.connect(url, options);
-var ClientJson = mqtt.connect(url, options);
+//const query = (sql)=>{
+//  return new Promise((resolve,reject)=>{
+//    db.query(sql,(error,result)=>{
+//      if(error){
+//        throw error
+//        reject(error('query error'));
+//      }
+//      else{
+//        resolve(result);
+//      }
+//    })
+//  });
+//}
+//-------------------db
 
+//---------------option
+const options = {
+    retain:false,
+    qos:0
+};
+const option = {
+        mode: 'text',
+        pythonPath: '',
+        pythonOptions: ['-u'],
+        scriptPath: '',
+        args: ''
+};
+
+//-----------------clinet connect
+const topics=['/status/toTx2','/status/wait','/status/complete','/motor'];
+const cam_topics=['/cam/tx2/deter','/cam/tx2/singup','/cam/app/deter','cam/app/singup'];
+let ClientStatus = mqtt.connect(url, options);
+let ClientJson = mqtt.connect(url, options);
+let ClientCamDeter = mqtt.connect(url,options);
+let ClientCamSignUp = mqtt.connect(url,options);
+//-----------------clinet connect
+
+
+//-------------parse message
 const toStr = (message)=>{
   message = message.toString();
   return message;
@@ -58,6 +76,7 @@ const makeDic=(order_list)=>{{
   }
   return tempdic;
 }}
+//-------------parse message
 
 ClientStatus.on('connect', function() { // When connected
   //toTx2에서 메세지가 올때 즉 모니터의 상태변화가 필요할때, toTx2구독
@@ -92,14 +111,19 @@ ClientStatus.on('connect', function() { // When connected
   });
 });
 
-ClientJson.on('connect',()=>{
+ClientJson.on('connect',function(){
   // complete를 구독
   ClientJson.subscribe(topics[2],()=>{
     console.log('subscribe on ',topics[2]);
     ClientJson.on('message',(topic,message,packet)=>{
       // message는 json형식일 것임
       message = toStr(message);
-      message = toJson(message);
+      try{
+          message = toJson(message);
+      }
+      catch (e){
+          console.log('json error',message);
+      }
       console.log(message);
       //sql = `INSERT INTO mqtt_test ('name','history','date') values ("${name}","${order_list}",now())`;
       //비동기 처리
@@ -110,4 +134,36 @@ ClientJson.on('connect',()=>{
     });
     
   });
+})
+
+ClientCamDeter.on('connect',function(){
+    ClientCamDeter.subscribe(cam_topics[0],()=>{
+        console.log('subscribe on ',cam_topics[0]);
+        ClientCamDeter.on('message',(topic,message,packet)=>{
+            PythonShell.run('./agePredict_tx2.py', option, (err, result) => {
+                if(err){
+                    throw err;
+                }
+                result = result[2].split(" ");
+                let data = "id : "+result[0]+", "+"age"+result[1];
+                ClientCamDeter.publish(cam_topics[2],data,options);
+            })
+        })
+    })
+})
+
+ClientCamSignUp.on('connect',()=>{
+    ClientCamSignUp.subscribe(cam_topics[1],()=>{
+        console.log('subscribe on ',cam_topics[1]);
+        ClientCamSignUp.on('message',(topic,message,packet)=>{
+            PythonShell.run('./signUp_tx2.py', option, (err, result) => {
+                if(err){
+                    throw err;
+                }
+                result = result[2].split(" ")
+                let data = "id : "+result[0]+", "+"age"+result[1];
+                ClientCamSignUp.publish(cam_topics[3],data,options);
+            })
+        })
+    })
 })
