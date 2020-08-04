@@ -7,28 +7,28 @@ const ip = '192.168.0.117';
 const url = "mqtt://" + ip;
 
 //--------------------db
-// const db = mysql.createConnection({
-//     host:'172.17.0.2',
-//     user:'namth',
+//const db = mysql.createConnection({
+//     host:'localhost',
+//     user:'root',
 //     port:'3306',
-//     password:'',
-//     database:'tx2',
-//     dateStrings:'date'
-// });
-// db.connect();
-//const query = (sql)=>{
-//  return new Promise((resolve,reject)=>{
-//    db.query(sql,(error,result)=>{
-//      if(error){
-//        throw error
-//        reject(error('query error'));
-//      }
-//      else{
-//        resolve(result);
-//      }
-//    })
-//  });
-//}
+//     password:'4752580',
+//     database:'kiosk',
+//     //dateStrings:'date'
+//});
+//db.connect();
+const query = (sql)=>{
+  return new Promise((resolve,reject)=>{
+    db.query(sql,(error,result)=>{
+     if(error){
+        throw error
+        reject(error('query error'));
+     }
+      else{
+        resolve(result);
+      }
+    })
+  });
+}
 //-------------------db
 
 //---------------option
@@ -87,16 +87,15 @@ ClientStatus.on('connect', function() { // When connected
     ClientStatus.on('message', function(topic, message, packet) {
       
       message = toStr(message);
-      console.log(message);
       // title -> wait, wait -> face
       //일단 1은 봉인시켜놓고 앱에서 주문완료시만 최상단으로 올라가도록
       if(message==2){
-        console.log('at the toTx2 ',message);
+        console.log('at the toTx2...2 ',message);
         ClientStatus.publish(topics[1],'2',options);// 앱에게 올라간다고 알림 down
         ClientStatus.publish(topics[3],'2',options);// 모터를 올라가도록 구동
       }
       else if(message==0){
-        console.log('at the toTx2 ',message);
+        console.log('at the toTx2...0 ',message);
         //  if longtime promise need
         setTimeout(function() {
         }, 30000);
@@ -104,7 +103,7 @@ ClientStatus.on('connect', function() { // When connected
         ClientStatus.publish(topics[3],'0',options);// stop
       }
       else{
-        console.log('at the toTx2 ',message);
+        console.log('at the toTx2...1 ',message);
         ClientStatus.publish(topics[1],'1',options)// up; app에게만 알림 따로 못올라가고 앱에서 complete를 받아야지만 올라감
       }
     });
@@ -125,43 +124,48 @@ ClientJson.on('connect',function(){
           console.log('json error',message);
       }
       console.log(message);
-      //sql = `INSERT INTO mqtt_test ('name','history','date') values ("${name}","${order_list}",now())`;
+      //let sql = `insert into history (client_age, order_list, member_id) values('22', json_object('EA', json_array(1,1), 'food', json_array('케익','아이스 아메리카노')),'3')`
       //비동기 처리
-      // query(sql).
-      // then(()=>console.log('done')).
-      // catch(error=>console.log(error))
+      //query(sql).
+      //then(()=>console.log('done')).
+      //catch(error=>console.log(error))
       ClientJson.publish(topics[3],'1',options);// 이러면 최상단으로 올라가야함 /motor
     });
     
   });
 })
 
+//----------------cam
+//deter는 회원일경우 DB조회
 ClientCamDeter.on('connect',function(){
     ClientCamDeter.subscribe(cam_topics[0],()=>{
         console.log('subscribe on ',cam_topics[0]);
         ClientCamDeter.on('message',(topic,message,packet)=>{
+			console.log('into detet');
             PythonShell.run('./agePredict_tx2.py', option, (err, result) => {
                 if(err){
                     throw err;
                 }
                 result = result[2].split(" ");
-                let data = "id : "+result[0]+", "+"age"+result[1];
+                let data = "id : "+result[0]+", "+"age : "+result[1];
                 ClientCamDeter.publish(cam_topics[2],data,options);
             })
         })
     })
 })
+//sighup은 단순히 uuid만 반납
 
 ClientCamSignUp.on('connect',()=>{
     ClientCamSignUp.subscribe(cam_topics[1],()=>{
         console.log('subscribe on ',cam_topics[1]);
         ClientCamSignUp.on('message',(topic,message,packet)=>{
+			console.log('into signin');
             PythonShell.run('./signUp_tx2.py', option, (err, result) => {
                 if(err){
                     throw err;
                 }
                 result = result[2].split(" ")
-                let data = "id : "+result[0]+", "+"age"+result[1];
+                let data = "id : "+result[0]+", "+"age : "+result[1];
                 ClientCamSignUp.publish(cam_topics[3],data,options);
             })
         })
