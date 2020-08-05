@@ -85,26 +85,23 @@ ClientStatus.on('connect', function() { // When connected
     
     // 가정 1상승, 0정지, 2 하강
     ClientStatus.on('message', function(topic, message, packet) {
-      
       message = toStr(message);
       // title -> wait, wait -> face
-      //일단 1은 봉인시켜놓고 앱에서 주문완료시만 최상단으로 올라가도록
-      if(message==2){
+      if(message===2){
         console.log('at the toTx2...2 ',message);
         ClientStatus.publish(topics[1],'2',options);// 앱에게 올라간다고 알림 down
         ClientStatus.publish(topics[3],'2',options);// 모터를 올라가도록 구동
       }
-      else if(message==0){
+      else if(message===0){
         console.log('at the toTx2...0 ',message);
-        //  if longtime promise need
-        setTimeout(function() {
-        }, 30000);
-        ClientStatus.publish(topics[1],'0',options);// 앱에게 멈추었다고 알리면 앱은 http로 얼굴 정보 가져오기
+        //  if longtime, promise need
+        ClientStatus.publish(topics[1],'0',options);
         ClientStatus.publish(topics[3],'0',options);// stop
       }
-      else{
+      else if(message==='1'){
         console.log('at the toTx2...1 ',message);
-        ClientStatus.publish(topics[1],'1',options)// up; app에게만 알림 따로 못올라가고 앱에서 complete를 받아야지만 올라감
+        ClientStatus.publish(topics[1],'1',options)// up
+        ClientStatus.publish(topics[3],'1',options);
       }
     });
   });
