@@ -14,7 +14,7 @@ except:
 
 
 def agePredict():
-    age_list = ['(0,2)', '(4,6)', '(8,12)', '(15,20)', '(25,32)', '(38,43)', '(48,53)', '(60,100)']
+    age_list = ['1', '5', '10', '17', '29', '40', '50', '65']
 
     age_net = cv2.dnn.readNetFromCaffe(
         '/home/lab207/mqtt_nodejs/js/models/deploy_age.prototxt',
