@@ -11,7 +11,7 @@ const db = mysql.createConnection({
      host:'localhost',
      user:'root',
      port:'3306',
-     password:'',
+     password:'4752580',
      database:'kiosk',
      dateStrings:'date'
 });
@@ -122,11 +122,13 @@ ClientJson.on('connect',function(){
       let sql = `insert into history (client_age, order_list, member_id) values('26', json_array(json_object('food', '아이스 카페라떼','count',2)),'4')`
       //비동기 처리
       query(sql).
-      then(()=>console.log('done')).
+      then(()=>{
+		  console.log('done');
+		  ClientJson.publish(topics[3],'1',options);// 이러면 최상단으로 올라가야함 /motor
+		  }).
       catch(error=>console.log(error))
-      ClientJson.publish(topics[3],'1',options);// 이러면 최상단으로 올라가야함 /motor
+      
     });
-    
   });
 })
 
