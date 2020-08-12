@@ -3,7 +3,8 @@ const mysql = require('mysql');
 const { json } = require('express');
 const { PythonShell } = require('python-shell');
 // Parse
-const ip = '192.168.0.117';
+//const ip = '192.168.0.117';
+const ip = '192.168.219.170';
 const url = "mqtt://" + ip;
 
 //--------------------db
@@ -47,6 +48,7 @@ const option = {
 //-----------------clinet connect
 const topics=['/status/toTx2','/status/wait','/status/complete','/motor'];
 const cam_topics=['/cam/tx2/deter','/cam/tx2/singup','/cam/app/deter','cam/app/singup'];
+const test_topic = '/status/complete';
 let ClientStatus = mqtt.connect(url, options);
 let ClientJson = mqtt.connect(url, options);
 let ClientCamDeter = mqtt.connect(url,options);
@@ -107,8 +109,10 @@ ClientStatus.on('connect', function() { // When connected
   });
 });
 
+
+// complete를 구독
 ClientJson.on('connect',function(){
-  // complete를 구독
+
   ClientJson.subscribe(topics[2],()=>{
     console.log('subscribe on ',topics[2]);
     ClientJson.on('message',(topic,message,packet)=>{
