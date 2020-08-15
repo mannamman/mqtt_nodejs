@@ -14,12 +14,13 @@ const db = mysql.createConnection({
      host:'localhost',
      user:'root',
      port:'3306',
-     password:'',
+     password:'4752580',
      database:'kiosk',
      dateStrings:'date'
 });
 db.connect();
 const query = (sql)=>{
+	console.log('query exec...');
   return new Promise((resolve,reject)=>{
     db.query(sql,(error,data)=>{
      if(error){
@@ -94,11 +95,49 @@ ClientStatus.on('connect', function() { // When connected
         console.log('at the toTx2...2 ',message);
         ClientStatus.publish(topics[3],'2',options);// 모터를 올라가도록 구동
       }
+      
+      //멈추었을시 정지했다고 알린후 얼굴판별후 DB접근
       else if(message==='0'){
         console.log('at the toTx2...0 ',message);
         //  if longtime, promise need
         ClientStatus.publish(topics[1],'0',options);// 유일하게 app에게 전달
         ClientStatus.publish(topics[3],'0',options);// stop
+        PythonShell.run('./agePredict_tx2.py', option, (err, result) => {
+                if(err){
+                    throw err;
+                }
+                console.log('face...');
+                result = result[2].split(" ");
+                //let data = "id : "+result[0]+", "+"age : "+result[1];
+                //비회원
+                if(result[0]==='Unknown'){
+					console.log('Unknown');
+					// limit 사용 고려
+					let temp = 26;
+					//let sql = `select order_list from history where client_age='${result[1]}'`;
+					let sql = `select order_list from history where client_age='${temp}'`;
+					query(sql).
+					then((data)=>{
+						//data[0].id = result[0];
+						data = JSON.stringify(data[0]);
+						ClientCamDeter.publish(cam_topics[2],data,options)
+						}).
+					catch((error)=>console.log(error));
+				}
+				//회원
+				else{
+					console.log('member : ',result[0]);
+					let sql = `select order_number,member.name as name, order_list from history join member on member.id = history.member_id where history.member_id = '${result[0]}'`;
+					query(sql).
+					then((data)=>{
+						console.log(data);
+						data = JSON.stringify(data[0]);
+						ClientCamDeter.publish(cam_topics[2],data,options)
+						}).
+					catch((error)=>console.log(error))
+				}
+            })
+        
       }
       else if(message==='1'){
         console.log('at the toTx2...1 ',message);
@@ -124,7 +163,8 @@ ClientJson.on('connect',function(){
           console.log('json error',message);
       }
       console.log(message);
-      let sql = `insert into history (client_age, order_list, member_id) values('26', json_array(json_object('food', '아이스 카페라떼','count',2)),'4')`
+      let id = parseInt(message['id']);
+      let sql = `insert into history (client_age, order_list, member_id) values('26', json_array(json_object('food', '아이스 카페라떼','count',2)),${id})`
       //비동기 처리
       query(sql).
       then(()=>{
@@ -139,48 +179,49 @@ ClientJson.on('connect',function(){
 
 //----------------cam
 //deter는 회원일경우 DB조회
-ClientCamDeter.on('connect',function(){
-    ClientCamDeter.subscribe(cam_topics[0],()=>{
-        console.log('subscribe on ',cam_topics[0]);
-        ClientCamDeter.on('message',(topic,message,packet)=>{
-			console.log('into deter');
-            PythonShell.run('./agePredict_tx2.py', option, (err, result) => {
-                if(err){
-                    throw err;
-                }
-                result = result[2].split(" ");
-                //let data = "id : "+result[0]+", "+"age : "+result[1];
-                //비회원
-                if(result[0]==='Unknown'){
-					console.log('Unknown');
-					// limit 사용 고려
-					let temp = 26;
-					//let sql = `select order_list from history where client_age='${result[1]}'`;
-					let sql = `select order_list from history where client_age='${temp}'`;
-					query(sql).
-					then((data)=>{
-						data[0].id = result[0];
-						data = JSON.stringify(data[0]);
-						ClientCamDeter.publish(cam_topics[2],data,options)
-						}).
-					catch((error)=>console.log(error));
-				}
+//현재 미사용
+//ClientCamDeter.on('connect',function(){
+//    ClientCamDeter.subscribe(cam_topics[0],()=>{
+//        console.log('subscribe on ',cam_topics[0]);
+//        ClientCamDeter.on('message',(topic,message,packet)=>{
+//			console.log('into deter');
+//            PythonShell.run('./agePredict_tx2.py', option, (err, result) => {
+//                if(err){
+//                    throw err;
+//                }
+//                result = result[2].split(" ");
+//                //let data = "id : "+result[0]+", "+"age : "+result[1];
+//                //비회원
+//                if(result[0]==='Unknown'){
+//					console.log('Unknown');
+//					// limit 사용 고려
+//					let temp = 26;
+//					//let sql = `select order_list from history where client_age='${result[1]}'`;
+//					let sql = `select order_list from history where client_age='${temp}'`;
+//					query(sql).
+//					then((data)=>{
+//						data[0].id = result[0];
+//						data = JSON.stringify(data[0]);
+//						ClientCamDeter.publish(cam_topics[2],data,options)
+//						}).
+//					catch((error)=>console.log(error));
+//				}
 				//회원
-				else{
-					console.log('member : ',result[0]);
-					let sql = `select order_number,member.name as name, order_list from history join member on member.id = history.member_id where history.member_id = '${result[0]}'`;
-					query(sql).
-					then((data)=>{
-						console.log(data);
-						data = JSON.stringify(data[0]);
-						ClientCamDeter.publish(cam_topics[2],data,options)
-						}).
-					catch((error)=>console.log(error))
-				}
-            })
-        })
-    })
-})
+//				else{
+//					console.log('member : ',result[0]);
+//					let sql = `select order_number,member.name as name, order_list from history join member on member.id = history.member_id where history.member_id = '${result[0]}'`;
+//					query(sql).
+//					then((data)=>{
+//						console.log(data);
+//						data = JSON.stringify(data[0]);
+//						ClientCamDeter.publish(cam_topics[2],data,options)
+//						}).
+//					catch((error)=>console.log(error))
+//				}
+//            })
+//        })
+//    })
+//})
 //sighup은 단순히 uuid만 반납
 
 ClientCamSignUp.on('connect',()=>{
