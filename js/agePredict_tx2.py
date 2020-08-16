@@ -94,11 +94,8 @@ def agePredict():
             age = age_list[age_preds[0].argmax()]
             face_age.append(age)
 
-        cv2.imshow('Video', frame)
-        cv2.waitKey(1)
 
     cap.release()
-    cv2.destroyAllWindows()
 
     for face_name, age in zip(face_name, face_age):
         post_data.append((face_name, age))
