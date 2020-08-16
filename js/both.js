@@ -91,9 +91,10 @@ ClientStatus.on('connect', function() { // When connected
     ClientStatus.on('message', function(topic, message, packet) {
       message = toStr(message);
       // title -> wait, wait -> face
-      if(message==='2'){
+      if(message==='1'){
         console.log('at the toTx2...2 ',message);
-        ClientStatus.publish(topics[3],'2',options);// 모터를 올라가도록 구동
+	ClientStatus.publish(topics[1],message,options);
+        ClientStatus.publish(topics[3],message,options);// 모터를 올라가도록 구동
       }
       
       //멈추었을시 정지했다고 알린후 얼굴판별후 DB접근
@@ -139,7 +140,7 @@ ClientStatus.on('connect', function() { // When connected
             })
         
       }
-      else if(message==='1'){
+      else if(message==='2'){
         console.log('at the toTx2...1 ',message);
         ClientStatus.publish(topics[3],'1',options);
       }
