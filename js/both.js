@@ -14,7 +14,7 @@ const db = mysql.createConnection({
      host:'localhost',
      user:'root',
      port:'3306',
-     password:'',
+     password:'4752580',
      database:'kiosk',
      dateStrings:'date'
 });
@@ -111,7 +111,51 @@ function makeOrderList(received){
 	basic = basic +")";
 	return basic;
 }
+//app에게 보낼때
 
+function toarr(data){
+    for(var i=0;i<data.length;i++){
+        data[i]['menu'] = JSON.parse(data[i]['menu'])
+        data[i]['count'] = JSON.parse(data[i]['count'])
+        //console.log('in to arr...menu',data[i]['menu']);
+        //console.log('in to arr...count',data[i]['count']);
+    }
+}
+
+function mymake(data){
+	pretty_yymmdd(data);
+    toarr(data);
+    let send_json={
+        "history":''
+    }
+    
+    let smallO=[];
+    for(var i=0;i<data.length;i++){
+        var temp = {};
+        for(var j = 0;j<data[i]['menu'].length;j++){
+            temp[data[i]['menu'][j]] =data[i]['count'][j];
+        }
+        smallO.push(temp);
+    }
+    let bigO = [];
+    for(var i =0;i<data.length;i++){
+        var intemp = data[i]["time"];
+        var temp={};
+        temp[intemp] = smallO[i];
+        bigO.push(temp);
+    }
+    send_json["history"] = bigO;
+    return send_json;
+}
+
+
+function pretty_yymmdd(data){
+	for(var i=0;i<data.length;i++){
+		var temp = data[i]['time'];
+		temp = temp.split(' ');
+		data[i]['time'] = temp[0];
+	}
+}
 //-------------parse message
 
 ClientStatus.on('connect', function() { // When connected
@@ -141,10 +185,10 @@ ClientStatus.on('connect', function() { // When connected
                 }
                 console.log('face...');
                 result = result[2].split(" ");
-				//let age = result[1];
-				//let id = result[0];
-				let id = 'Unknown';
-				let age = 25;
+				let age = result[1];
+				let id = result[0];
+				//let id = 'Unknown';
+				//let age = 25;
                 //let data = "id : "+result[0]+", "+"age : "+result[1];
                 //비회원
                 if(id==='Unknown'){
@@ -153,8 +197,10 @@ ClientStatus.on('connect', function() { // When connected
 					let select_sql = `select kiosk.order.number, kiosk.order.age, json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time from kiosk.detail join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and  json_extract(orderlist, '$[0]."menu"') = menu.name where kiosk.order.age is not null and kiosk.order.age='${age}'`;			
 					query(select_sql).
 					then((data)=>{
-						data[0]['id'] = id;
-						console.log('unkown',data);
+						console.log('unknown',data);
+						data=mymake(data);
+						data['id'] = id;
+						data['age'] = age;
 						data = JSON.stringify(data);
 						ClientCamDeter.publish(cam_topics[2],data,options)
 						}).
@@ -166,8 +212,13 @@ ClientStatus.on('connect', function() { // When connected
 					let sql = `select kiosk.member.name, kiosk.order.number, json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time from kiosk.detail join kiosk.member join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and kiosk.member.id = kiosk.order.member_id and  json_extract(orderlist, '$[0]."menu"') = menu.name where member.id = '${id}'`;
 					query(sql).
 					then((data)=>{
+						//data=JSON.toString(data);
 						console.log('member',data);
-						data=JSON.toString(data);
+						data = mymake(data);
+						data['id'] = id;
+						data['age'] = age;
+						console.log(data);
+						data = JSON.stringify(data);
 						ClientCamDeter.publish(cam_topics[2],data,options)
 						}).
 					catch((error)=>console.log(error))
@@ -220,7 +271,7 @@ ClientJson.on('connect',function(){
 		else{
 			insert_order_sql = `insert into kiosk.order (member_id) values ('${id}')`;
 		}
-		//important here
+		//query
 		query(insert_order_sql)
 		.then(()=>{
 			console.log('done insert order');
