@@ -50,11 +50,12 @@ const option = {
 
 //-----------------clinet connect
 const topics=['/status/toTx2','/status/wait','/status/complete','/motor'];
-const cam_topics=['/cam/tx2/deter','/cam/tx2/singup','/cam/app/deter','cam/app/singup'];
+const cam_topics=['/cam/tx2/deter','/cam/tx2/signup','/cam/app/deter','cam/app/singup','/cam/tx2/singup/complete'];
 let ClientStatus = mqtt.connect(url, options);
 let ClientJson = mqtt.connect(url, options);
 let ClientCamDeter = mqtt.connect(url,options);
 let ClientCamSignUp = mqtt.connect(url,options);
+let ClientCamSignUpComplete = mqtt.connect(url,options);
 //-----------------clinet connect
 
 
@@ -80,6 +81,37 @@ const makeDic=(order_list)=>{{
   }
   return tempdic;
 }}
+
+function objLength(obj){
+  var i=0;
+  for (var x in obj){
+    if(obj.hasOwnProperty(x)){
+      i++;
+    }
+  } 
+  return i;
+}
+//json_object("menu","ice americano", "count",1)
+function makeOrderList(received){
+	let basic = 'json_array(';
+	let json_object = '';
+	let cnt =0;
+	for(var i in received){
+		if(cnt===0){
+			json_object = 'json_object("menu",';
+		}
+		else{
+			json_object = ', json_object("menu",';
+		}
+		json_object = json_object + '"' +i+ '"' + ', "count",';
+		json_object = json_object + received[i] + ")";
+		basic = basic + json_object;
+		cnt = cnt + 1;
+	}
+	basic = basic +")";
+	return basic;
+}
+
 //-------------parse message
 
 ClientStatus.on('connect', function() { // When connected
@@ -87,52 +119,55 @@ ClientStatus.on('connect', function() { // When connected
   ClientStatus.subscribe(topics[0], function() {
     console.log('subscribe on ',topics[0]);
     
-    // 가정 1상승, 0정지, 2 하강
+    // 가정 1하강, 0정지, 2 상승
     ClientStatus.on('message', function(topic, message, packet) {
       message = toStr(message);
       // title -> wait, wait -> face
       if(message==='1'){
-        console.log('at the toTx2...2 ',message);
-	ClientStatus.publish(topics[1],message,options);
-        ClientStatus.publish(topics[3],message,options);// 모터를 올라가도록 구동
+        console.log('at the toTx2... ',message);
+		ClientStatus.publish(topics[1],message,options);
+        ClientStatus.publish(topics[3],message,options);
       }
       
       //멈추었을시 정지했다고 알린후 얼굴판별후 DB접근
       else if(message==='0'){
-        console.log('at the toTx2...0 ',message);
+        console.log('at the toTx2... ',message);
         //  if longtime, promise need
-        ClientStatus.publish(topics[1],'0',options);// 유일하게 app에게 전달
-        ClientStatus.publish(topics[3],'0',options);// stop
+        ClientStatus.publish(topics[1],message,options);
+        ClientStatus.publish(topics[3],message,options);
         PythonShell.run('./agePredict_tx2.py', option, (err, result) => {
                 if(err){
                     throw err;
                 }
                 console.log('face...');
                 result = result[2].split(" ");
+				//let age = result[1];
+				//let id = result[0];
+				let id = 'Unknown';
+				let age = 25;
                 //let data = "id : "+result[0]+", "+"age : "+result[1];
                 //비회원
-                if(result[0]==='Unknown'){
+                if(id==='Unknown'){
 					console.log('Unknown');
 					// limit 사용 고려
-					let temp = 26;
-					//let sql = `select order_list from history where client_age='${result[1]}'`;
-					let sql = `select order_list from history where client_age='${temp}'`;
-					query(sql).
+					let select_sql = `select kiosk.order.number, kiosk.order.age, json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time from kiosk.detail join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and  json_extract(orderlist, '$[0]."menu"') = menu.name where kiosk.order.age is not null and kiosk.order.age='${age}'`;			
+					query(select_sql).
 					then((data)=>{
-						//data[0].id = result[0];
-						data = JSON.stringify(data[0]);
+						data[0]['id'] = id;
+						console.log('unkown',data);
+						data = JSON.stringify(data);
 						ClientCamDeter.publish(cam_topics[2],data,options)
 						}).
 					catch((error)=>console.log(error));
 				}
 				//회원
 				else{
-					console.log('member : ',result[0]);
-					let sql = `select order_number,member.name as name, order_list from history join member on member.id = history.member_id where history.member_id = '${result[0]}'`;
+					console.log('member : ',id);
+					let sql = `select kiosk.member.name, kiosk.order.number, json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time from kiosk.detail join kiosk.member join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and kiosk.member.id = kiosk.order.member_id and  json_extract(orderlist, '$[0]."menu"') = menu.name where member.id = '${id}'`;
 					query(sql).
 					then((data)=>{
-						console.log(data);
-						data = JSON.stringify(data[0]);
+						console.log('member',data);
+						data=JSON.toString(data);
 						ClientCamDeter.publish(cam_topics[2],data,options)
 						}).
 					catch((error)=>console.log(error))
@@ -141,7 +176,7 @@ ClientStatus.on('connect', function() { // When connected
         
       }
       else if(message==='2'){
-        console.log('at the toTx2...1 ',message);
+        console.log('at the toTx2... ',message);
         ClientStatus.publish(topics[3],'1',options);
       }
     });
@@ -150,79 +185,69 @@ ClientStatus.on('connect', function() { // When connected
 
 
 // complete를 구독
+//insert into detail (order_number,orderlist) values (4,'[{"id":1,"test":2}]')
 ClientJson.on('connect',function(){
 
-  ClientJson.subscribe(topics[2],()=>{
-    console.log('subscribe on ',topics[2]);
-    ClientJson.on('message',(topic,message,packet)=>{
+	ClientJson.subscribe(topics[2],()=>{
+		console.log('subscribe on ',topics[2]);
+	ClientJson.on('message',(topic,message,packet)=>{
       // message는 json형식일 것임
-      message = toStr(message);
-      try{
-          message = toJson(message);
-      }
-      catch (e){
-          console.log('json error',message);
-      }
-      console.log(message);
-      let id = parseInt(message['id']);
-      let sql = `insert into history (client_age, order_list, member_id) values('26', json_array(json_object('food', '아이스 카페라떼','count',2)),${id})`
-      //비동기 처리
-      query(sql).
-      then(()=>{
-		  console.log('done');
-		  ClientJson.publish(topics[3],'1',options);// 이러면 최상단으로 올라가야함 /motor
-		  }).
-      catch(error=>console.log(error))
-      
-    });
-  });
+		message = toStr(message);
+		try{
+			message = toJson(message);
+		}
+		catch (e){
+			console.log('json error',message);
+		}
+		console.log(message);
+		let id = message['id'];
+		let age = message['age'];
+		let get_auto_increment_sql = "select count(number) from kiosk.order;"
+		let auto_num = 0;
+		let orderlist = '';
+		try{
+			orderlist = makeOrderList(message['orderlist']);
+		}
+		catch(e){
+			console.log('order_list err');
+		}
+		//let auto_num = get_auto_num
+		let insert_order_sql = ``;
+		let insert_detail_sql='';
+		if(id==='Unknown'){
+			insert_order_sql = `insert into kiosk.order (age) values ('${age}')`;
+		}
+		else{
+			insert_order_sql = `insert into kiosk.order (member_id) values ('${id}')`;
+		}
+		//important here
+		query(insert_order_sql)
+		.then(()=>{
+			console.log('done insert order');
+			
+			query(get_auto_increment_sql)
+			.then((get_auto_num)=>{
+				console.log('done get auto');
+				auto_num = get_auto_num[0]['count(number)'];
+				insert_detail_sql = `insert into detail(order_number, orderlist) values (${auto_num}, ${orderlist})`;
+				
+				query(insert_detail_sql)
+				.then(()=>{
+					console.log('done insert detail');
+				})
+				.catch(e=>console.log('insert detail',e))
+				
+			})
+			.catch(e=>console.log('get auto',e))
+			
+		})
+		.catch(e=>console.log('insert order',e))
+		});
+	});
 })
 
 //----------------cam
-//deter는 회원일경우 DB조회
-//현재 미사용
-//ClientCamDeter.on('connect',function(){
-//    ClientCamDeter.subscribe(cam_topics[0],()=>{
-//        console.log('subscribe on ',cam_topics[0]);
-//        ClientCamDeter.on('message',(topic,message,packet)=>{
-//			console.log('into deter');
-//            PythonShell.run('./agePredict_tx2.py', option, (err, result) => {
-//                if(err){
-//                    throw err;
-//                }
-//                result = result[2].split(" ");
-//                //let data = "id : "+result[0]+", "+"age : "+result[1];
-//                //비회원
-//                if(result[0]==='Unknown'){
-//					console.log('Unknown');
-//					// limit 사용 고려
-//					let temp = 26;
-//					//let sql = `select order_list from history where client_age='${result[1]}'`;
-//					let sql = `select order_list from history where client_age='${temp}'`;
-//					query(sql).
-//					then((data)=>{
-//						data[0].id = result[0];
-//						data = JSON.stringify(data[0]);
-//						ClientCamDeter.publish(cam_topics[2],data,options)
-//						}).
-//					catch((error)=>console.log(error));
-//				}
-				//회원
-//				else{
-//					console.log('member : ',result[0]);
-//					let sql = `select order_number,member.name as name, order_list from history join member on member.id = history.member_id where history.member_id = '${result[0]}'`;
-//					query(sql).
-//					then((data)=>{
-//						console.log(data);
-//						data = JSON.stringify(data[0]);
-//						ClientCamDeter.publish(cam_topics[2],data,options)
-//						}).
-//					catch((error)=>console.log(error))
-//				}
-//            })
-//        })
-//    })
-//})
+
 //sighup은 단순히 uuid만 반납
 
 ClientCamSignUp.on('connect',()=>{
@@ -230,22 +255,43 @@ ClientCamSignUp.on('connect',()=>{
         console.log('subscribe on ',cam_topics[1]);
         //message는 app에서 받아와야함
         ClientCamSignUp.on('message',(topic,message,packet)=>{
-			console.log('into signin');
+			console.log('into signup');
             PythonShell.run('./signUp_tx2.py', option, (err, result) => {
                 if(err){
                     throw err;
                 }
                 result = result[2].split(" ")
-                let name = 'test';
-                let data = "id : "+result[0]+", "+"age : "+result[1];
-                let sql = `insert into member (id,name,age) values ('${result[0]}','${name}','${result[1]}')`;
-                query(sql).
-                then((data)=>{
-					console.log(data);
-					ClientCamSignUp.publish(cam_topics[3],data,options);
-				}).
-                catch((error)=>console.log(error));
+                let info = {};
+                let id = result[0];
+                let age = result[1];
+                info['id'] = id;
+                info['age'] =age;
+                info = JSON.toString(info);
+                ClientCamSignUp.publish(cam_topics[3],info,options);
             })
         })
     })
+})
+ClientCamSignUpComplete.on('connect',()=>{
+	ClientCamSignUpComplete.subscribe(cam_topics[4],()=>{
+		console.log('subscribe on ',cam_topics[4]);
+		ClientCamSignUpComplete.on('message',(topic,message,packet)=>{
+			console.log('into signup complete');
+			message = toStr(message);
+			try{
+				message = toJson(message);
+			}
+			catch (e){
+				console.log('json error',message);
+			}
+			console.log(message);
+			let id = message['id'];
+			let name = message['name'];
+			let age = message['age'];
+			let insert_sql = `insert into member (id,name,age) values ('${id}','${name}','${age}')`;
+			//query(insert_sql)
+			//.then((log)=>console.log(log))
+			//.catch((e)=>console.log(e));
+		})
+	})
 })
