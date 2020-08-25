@@ -228,7 +228,7 @@ ClientStatus.on('connect', function() { // When connected
       }
       else if(message==='2'){
         console.log('at the toTx2... ',message);
-        ClientStatus.publish(topics[3],'1',options);
+        ClientStatus.publish(topics[3],message,options);
       }
     });
   });
