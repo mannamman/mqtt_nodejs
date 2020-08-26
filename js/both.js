@@ -156,6 +156,11 @@ function pretty_yymmdd(data){
 		data[i]['time'] = temp[0];
 	}
 }
+function basic(data){
+	toarr(data);
+	pretty_yymmdd(data);
+	return data;
+}
 //-------------parse message
 
 ClientStatus.on('connect', function() { // When connected
@@ -215,11 +220,15 @@ ClientStatus.on('connect', function() { // When connected
 					then((data)=>{
 						//data=JSON.toString(data);
 						console.log('member',data);
-						data = mymake(data);
+						
+						//data = mymake(data);					
+						data = basic(data);
+	
 						data['id'] = id;
 						data['age'] = age;
-						console.log(data);
+						console.log('after',data);
 						data = JSON.stringify(data);
+						console.log('str',data);
 						ClientCamDeter.publish(cam_topics[2],data,options)
 						}).
 					catch((error)=>console.log(error))
