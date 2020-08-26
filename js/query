@@ -1,0 +1,35 @@
+회원
+select kiosk.member.name, kiosk.order.number, json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time
+from kiosk.detail
+join kiosk.member
+join kiosk.order
+join kiosk.menu
+on kiosk.order.number = kiosk.detail.order_number and kiosk.member.id = kiosk.order.member_id and  json_extract(orderlist, '$[0]."menu"') = menu.name
+
+비회원
+select kiosk.order.number, kiosk.order.age, json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time
+from kiosk.detail
+join kiosk.order
+join kiosk.menu
+on kiosk.order.number = kiosk.detail.order_number and  json_extract(orderlist, '$[0]."menu"') = menu.name
+where kiosk.order.age is not null
+
+detail 입력
+insert into detail(order_number, orderlist) values (1, json_array(json_object('menu','ice americano', 'count',1)));
+insert into detail(order_number, orderlist) values (2, json_array(json_object('menu','ice americano', 'count',2), json_object('menu','cake','count',1)));
+insert into detail(order_number, orderlist) values (3, json_array(json_object('menu','cake', 'count',3)));
+insert into detail(order_number, orderlist) values (4, json_array(json_object('menu','cake', 'count',4),json_object('menu','ice americano', 'count',1)));
+
+id값 정렬
+alter table detail auto_increment =1;
+set @cnt=0;
+update detail set id = @cnt :=@cnt+1; 
+
+auto_increment
+select count(number) from kiosk.order;
+auto 값 수정
+ALTER TABLE [테이블명] AUTO_INCREMENT=[시작할려는 순서]
+재정렬
+SET @COUNT = 0;
+UPDATE [테이블명] SET [컬럼명] = @COUNT:=@COUNT+1;
+
