@@ -178,8 +178,9 @@ ClientStatus.on('connect', function() { // When connected
         console.log('at the toTx2... ',message);
         //  if longtime, promise need
         ClientStatus.publish(topics[1],message,options);
-        ClientStatus.publish(topics[3],message,options);
-        PythonShell.run('./agePredict_tx2.py', option, (err, result) => {
+		ClientStatus.publish(topics[3],message,options);
+		try{
+			PythonShell.run('./agePredict_tx2.py', option, (err, result) => {
                 if(err){
                     throw err;
                 }
@@ -223,7 +224,11 @@ ClientStatus.on('connect', function() { // When connected
 						}).
 					catch((error)=>console.log(error))
 				}
-            })
+        	})
+		}
+		catch(e){
+			console.log(e);
+		}        
         
       }
       else if(message==='2'){
