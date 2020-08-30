@@ -205,8 +205,10 @@ ClientStatus.on('connect', function() { // When connected
                 result = result[2].split(" ");
 				let age = result[1];
 				let id = result[0];
-				//let id = 'Unknown';
-				//let age = 25;
+				//temp
+				id = 'Unknown';
+				age = 25;
+				//temp
                 //let data = "id : "+result[0]+", "+"age : "+result[1];
                 //비회원
                 if(id==='Unknown'){
@@ -216,10 +218,15 @@ ClientStatus.on('connect', function() { // When connected
 					query(select_sql).
 					then((data)=>{
 						console.log('unknown',data);
-						data=mymake(data);
+						//data=mymake(data);
+						data = basic(data);
+						console.log('basic',data);
+						
+						console.log('id, age',data);
+						data = AddKey(data);
 						data['id'] = id;
 						data['age'] = age;
-						data = AddKey(data);
+						data['name'] = id;
 						data = JSON.stringify(data);
 						ClientCamDeter.publish(cam_topics[2],data,options)
 						}).
@@ -227,6 +234,7 @@ ClientStatus.on('connect', function() { // When connected
 				}
 				//회원
 				else{
+					//name,age따로 빼기 !! history의 밖의 key로
 					console.log('member : ',id);
 					let sql = `select kiosk.member.name, kiosk.order.number, json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time from kiosk.detail join kiosk.member join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and kiosk.member.id = kiosk.order.member_id and  json_extract(orderlist, '$[0]."menu"') = menu.name where member.id = '${id}'`;
 					query(sql).
@@ -237,10 +245,11 @@ ClientStatus.on('connect', function() { // When connected
 						//data = mymake(data);					
 						data = basic(data);
 	
-						data['id'] = id;
-						data['age'] = age;
+						
 						console.log('after',data);
 						data = AddKey(data);
+						data['id'] = id;
+						data['age'] = age;
 						data = JSON.stringify(data);
 						console.log('stringify',data);
 						ClientCamDeter.publish(cam_topics[2],data,options)
