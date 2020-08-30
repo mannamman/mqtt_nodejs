@@ -50,7 +50,7 @@ const option = {
 
 //-----------------clinet connect
 const topics=['/status/toTx2','/status/wait','/status/complete','/motor'];
-const cam_topics=['/cam/tx2/deter','/cam/tx2/signup','/cam/app/deter','cam/app/singup','/cam/tx2/singup/complete'];
+const cam_topics=['/cam/tx2/deter','/cam/tx2/signup','/cam/app/deter','/cam/app/signup','/cam/tx2/signup/complete'];
 let ClientStatus = mqtt.connect(url, options);
 let ClientJson = mqtt.connect(url, options);
 let ClientCamDeter = mqtt.connect(url,options);
@@ -153,13 +153,25 @@ function pretty_yymmdd(data){
 	for(var i=0;i<data.length;i++){
 		var temp = data[i]['time'];
 		temp = temp.split(' ');
-		data[i]['time'] = temp[0];
+		temp = temp[0];
+		let nonbar = '';
+		for(var j = 0;j<temp.length;j++){
+			if(temp[j]!=='-'){
+				nonbar = nonbar + temp[j];
+			}
+		}
+		data[i]['time'] = nonbar;
 	}
 }
 function basic(data){
 	toarr(data);
 	pretty_yymmdd(data);
 	return data;
+}
+function AddKey(data){
+	let ObjData = {};
+	ObjData['history'] = data;
+	return ObjData;
 }
 //-------------parse message
 
@@ -181,15 +193,15 @@ ClientStatus.on('connect', function() { // When connected
       //멈추었을시 정지했다고 알린후 얼굴판별후 DB접근
       else if(message==='0'){
         console.log('at the toTx2... ',message);
-        //  if longtime, promise need
-        ClientStatus.publish(topics[1],message,options);
+        //topics[1]은 app에게 3은 motor
+        ClientStatus.publish(topics[1],'1',options);
 		ClientStatus.publish(topics[3],message,options);
 		try{
 			PythonShell.run('./agePredict_tx2.py', option, (err, result) => {
                 if(err){
                     throw err;
                 }
-                console.log('face...');
+                console.log('into deter...');
                 result = result[2].split(" ");
 				let age = result[1];
 				let id = result[0];
@@ -207,10 +219,11 @@ ClientStatus.on('connect', function() { // When connected
 						data=mymake(data);
 						data['id'] = id;
 						data['age'] = age;
+						data = AddKey(data);
 						data = JSON.stringify(data);
 						ClientCamDeter.publish(cam_topics[2],data,options)
 						}).
-					catch((error)=>console.log(error));
+					catch((error)=>console.log('unkown query error : ',error));
 				}
 				//회원
 				else{
@@ -227,16 +240,17 @@ ClientStatus.on('connect', function() { // When connected
 						data['id'] = id;
 						data['age'] = age;
 						console.log('after',data);
+						data = AddKey(data);
 						data = JSON.stringify(data);
-						console.log('str',data);
+						console.log('stringify',data);
 						ClientCamDeter.publish(cam_topics[2],data,options)
 						}).
-					catch((error)=>console.log(error))
+					catch((error)=>console.log('member query error : ',error))
 				}
         	})
 		}
 		catch(e){
-			console.log(e);
+			console.log('python error : ',e);
 		}        
         
       }
@@ -257,6 +271,7 @@ ClientJson.on('connect',function(){
 		console.log('subscribe on ',topics[2]);
 	ClientJson.on('message',(topic,message,packet)=>{
       // message는 json형식일 것임
+        console.log('in complete');
 		message = toStr(message);
 		try{
 			message = toJson(message);
@@ -326,12 +341,8 @@ ClientCamSignUp.on('connect',()=>{
                     throw err;
                 }
                 result = result[2].split(" ")
-                let info = {};
                 let id = result[0];
-                let age = result[1];
-                info['id'] = id;
-                info['age'] =age;
-                info = JSON.toString(info);
+				let info = `{'uuid':'${id}'}`;
                 ClientCamSignUp.publish(cam_topics[3],info,options);
             })
         })
