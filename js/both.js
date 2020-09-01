@@ -194,7 +194,7 @@ ClientStatus.on('connect', function() { // When connected
       else if(message==='0'){
         console.log('at the toTx2... ',message);
         //topics[1]은 app에게 3은 motor
-        ClientStatus.publish(topics[1],'1',options);
+        ClientStatus.publish(topics[1],message,options);
 		ClientStatus.publish(topics[3],message,options);
 		try{
 			PythonShell.run('./agePredict_tx2.py', option, (err, result) => {
@@ -206,15 +206,17 @@ ClientStatus.on('connect', function() { // When connected
 				let age = result[1];
 				let id = result[0];
 				//temp
-				id = 'Unknown';
-				age = 25;
+				//id = 'Unknown';
+				//age = 25;
 				//temp
                 //let data = "id : "+result[0]+", "+"age : "+result[1];
                 //비회원
                 if(id==='Unknown'){
 					console.log('Unknown');
 					// limit 사용 고려
-					let select_sql = `select kiosk.order.number, kiosk.order.age, json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time from kiosk.detail join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and  json_extract(orderlist, '$[0]."menu"') = menu.name where kiosk.order.age is not null and kiosk.order.age='${age}'`;			
+					//old
+					//let select_sql = `select kiosk.order.number, kiosk.order.age, json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time from kiosk.detail join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and  json_extract(orderlist, '$[0]."menu"') = menu.name where kiosk.order.age is not null and kiosk.order.age='${age}'`;			
+					let select_sql = `select json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time from kiosk.detail join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and  json_extract(orderlist, '$[0]."menu"') = menu.name where kiosk.order.member_id is null`;
 					query(select_sql).
 					then((data)=>{
 						console.log('unknown',data);
@@ -228,6 +230,7 @@ ClientStatus.on('connect', function() { // When connected
 						data['age'] = age;
 						data['name'] = id;
 						data = JSON.stringify(data);
+						console.log('stringify',data);
 						ClientCamDeter.publish(cam_topics[2],data,options)
 						}).
 					catch((error)=>console.log('unkown query error : ',error));
@@ -236,24 +239,32 @@ ClientStatus.on('connect', function() { // When connected
 				else{
 					//name,age따로 빼기 !! history의 밖의 key로
 					console.log('member : ',id);
-					let sql = `select kiosk.member.name, kiosk.order.number, json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time from kiosk.detail join kiosk.member join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and kiosk.member.id = kiosk.order.member_id and  json_extract(orderlist, '$[0]."menu"') = menu.name where member.id = '${id}'`;
-					query(sql).
+					//old
+					//let sql = `select kiosk.member.name, kiosk.order.number, json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time from kiosk.detail join kiosk.member join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and kiosk.member.id = kiosk.order.member_id and  json_extract(orderlist, '$[0]."menu"') = menu.name where member.id = '${id}'`;
+					let history_sql = `select json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time from kiosk.detail join kiosk.member join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and kiosk.member.id = kiosk.order.member_id and  json_extract(orderlist, '$[0]."menu"') = menu.name where member.id = '${id}' limit 5`;// menu count time
+					let user_info_sql = `select * from member where id = '${id}'`;//age name id
+					query(history_sql).
 					then((data)=>{
 						//data=JSON.toString(data);
 						console.log('member',data);
-						
-						//data = mymake(data);					
-						data = basic(data);
-	
-						
-						console.log('after',data);
-						data = AddKey(data);
-						data['id'] = id;
-						data['age'] = age;
-						data = JSON.stringify(data);
-						console.log('stringify',data);
-						ClientCamDeter.publish(cam_topics[2],data,options)
-						}).
+						//data = mymake(data);		
+						let SendObj = {};			
+						SendObj = basic(data);
+						SendObj = AddKey(SendObj);
+						query(user_info_sql).
+						then((info)=>{
+							let user_name = info[0]['name'];
+							let user_age = info[0]['age'];
+							let user_id = info[0]['id'];
+							SendObj['id'] = user_id;
+							SendObj['name'] = user_name;
+							SendObj['age'] = user_age;
+							SendObj = JSON.stringify(SendObj);
+							console.log('stringify',SendObj);
+							ClientCamDeter.publish(cam_topics[2],SendObj,options);
+						})
+						.catch((e)=>{console.log('user.info error',e)})
+					}).
 					catch((error)=>console.log('member query error : ',error))
 				}
         	})
@@ -288,14 +299,19 @@ ClientJson.on('connect',function(){
 		catch (e){
 			console.log('json error',message);
 		}
-		console.log(message);
+		console.log('msg : ',message);
 		let id = message['id'];
 		let age = message['age'];
 		let get_auto_increment_sql = "select count(number) from kiosk.order;"
 		let auto_num = 0;
 		let orderlist = '';
 		try{
-			orderlist = makeOrderList(message['orderlist']);
+			UnsortedOrderList = message['orderlist'];
+			const ordered = {};
+			Object.keys(UnsortedOrderList).sort().forEach(function(key) {
+				ordered[key] = UnsortedOrderList[key];
+			});
+			orderlist = makeOrderList(ordered);
 		}
 		catch(e){
 			console.log('order_list err');
@@ -309,6 +325,7 @@ ClientJson.on('connect',function(){
 		else{
 			insert_order_sql = `insert into kiosk.order (member_id) values ('${id}')`;
 		}
+		console.log(orderlist);
 		//query
 		query(insert_order_sql)
 		.then(()=>{
