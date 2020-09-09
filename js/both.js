@@ -9,6 +9,7 @@ const { PythonShell } = require('python-shell');
 const ip = '192.168.0.117';
 const url = "mqtt://" + ip;
 
+let semapore = true;
 
 //---------------option
 const options = {
@@ -160,106 +161,123 @@ ClientStatus.on('connect', function() { // When connected
     ClientStatus.on('message', function(topic, message, packet) {
       message = toStr(message);
       // title -> wait, wait -> face
-      if(message==='1'){
-        console.log('at the toTx2... ',message);
-		ClientStatus.publish(topics[1],message,options);
-        ClientStatus.publish(topics[3],message,options);
-      }
+      if(semapore===true){
+		  if(message==='1'){
+			console.log('at the toTx2... ',message);
+			semapore = false;
+			ClientStatus.publish(topics[1],message,options);
+			ClientStatus.publish(topics[3],message,options);
+			semapore = true;
+		  }
       
       //멈추었을시 정지했다고 알린후 얼굴판별후 DB접근
-      else if(message==='0'){
-        console.log('at the toTx2... ',message);
-        //topics[1]은 app에게 3은 motor
-        ClientStatus.publish(topics[1],message,options);
-		ClientStatus.publish(topics[3],message,options);
-		try{
-			PythonShell.run('./agePredict_tx2.py', option, async (err, result) => {
-                if(err){
-                    throw err;
-                }
-                console.log('into deter...');
-                result = result[2].split(" ");
-				let age = result[1];
-				let id = result[0];
-				//temp
-				id = 'Unknown';
-				age = 25;
-				//temp
-                //let data = "id : "+result[0]+", "+"age : "+result[1];
-                //비회원
-                if(id==='Unknown'){
-					console.log('Unknown');	
-					try{
-						const connection = await pool.getConnection(async (conn)=>conn);
+		  else if(message==='0'){
+			console.log('at the toTx2... ',message);
+			semapore = false;
+			
+			//topics[1]은 app에게 3은 motor
+			ClientStatus.publish(topics[1],message,options);
+			ClientStatus.publish(topics[3],message,options);
+			try{
+				PythonShell.run('./agePredict_tx2.py', option, async (err, result) => {
+					if(err){
+						throw err;
+					}
+					console.log('into deter...');
+					result = result[2].split(" ");
+					let age = result[1];
+					let id = result[0];
+					//temp
+					id = 'Unknown';
+					age = 25;
+					//temp
+					//let data = "id : "+result[0]+", "+"age : "+result[1];
+					//비회원
+					if(id==='Unknown'){
+						console.log('Unknown');	
 						try{
-							let select_sql = `select json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time from kiosk.detail join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and  json_extract(orderlist, '$[0]."menu"') = menu.name where kiosk.order.member_id is null`;
-							let [rows] = await connection.query(select_sql);
-							connection.release();
-							rows = basic(rows);
-							rows = AddKey(rows);
-							rows['id'] = id;
-							rows['age'] = age;
-							rows['name'] = id;
-							rows = JSON.stringify(rows);
-							connection.release();
-							ClientCamDeter.publish(cam_topics[2],rows,options);
+							const connection = await pool.getConnection(async (conn)=>conn);
+							try{
+								let select_sql = `select json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time from kiosk.detail join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and  json_extract(orderlist, '$[0]."menu"') = menu.name where kiosk.order.member_id is null`;
+								let [rows] = await connection.query(select_sql);
+								connection.release();
+								rows = basic(rows);
+								rows = AddKey(rows);
+								rows['id'] = id;
+								rows['age'] = age;
+								rows['name'] = id;
+								rows = JSON.stringify(rows);
+								connection.release();
+								ClientCamDeter.publish(cam_topics[2],rows,options);
+								semapore = true; 
+							}
+							catch(e){
+								console.log('query error');
+								connection.release();
+								semapore = true; 
+							}
 						}
 						catch(e){
-							console.log('query error');
-							connection.release();
+							console.log('pool error');
+							semapore = true; 
 						}
 					}
-					catch(e){
-						console.log('pool error');
-					}
-				}
-				//회원
-				else{
-					console.log('member : ',id);
-					try{
-						const connection = await pool.getConnection(async (conn)=>conn);
+					//회원
+					else{
+						console.log('member : ',id);
 						try{
-							let history_sql = `select json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time from kiosk.detail join kiosk.member join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and kiosk.member.id = kiosk.order.member_id and  json_extract(orderlist, '$[0]."menu"') = menu.name where member.id = '${id}' limit 5`;// menu count time
-							let user_info_sql = `select * from member where id = '${id}'`;//age name id
-							let [rows_history] = await connection.query(history_sql);
-							console.log('history : ',rows_history);
-							let SendObj = {};
-							console.log('??');
-							SendObj = basic(rows_history);
-							console.log('basic : ',SendObj);
-							SendObj = AddKey(SendObj);
-							console.log('AddKey : ',SendObj);
-							let [rows_info] = await connection.query(user_info_sql);
-							let user_name = rows_info[0]['name'];
-							let user_age = rows_info[0]['age'];
-							let user_id = rows_info[0]['id'];
-							SendObj['id'] = user_id;
-							SendObj['name'] = user_name;
-							SendObj['age'] = user_age;
-							SendObj = JSON.stringify(SendObj);
-							console.log('stringify',SendObj);
-							connection.release();
-							ClientCamDeter.publish(cam_topics[2],SendObj,options);
+							const connection = await pool.getConnection(async (conn)=>conn);
+							try{
+								let history_sql = `select json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time from kiosk.detail join kiosk.member join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and kiosk.member.id = kiosk.order.member_id and  json_extract(orderlist, '$[0]."menu"') = menu.name where member.id = '${id}' limit 5`;// menu count time
+								let user_info_sql = `select * from member where id = '${id}'`;//age name id
+								let [rows_history] = await connection.query(history_sql);
+								console.log('history : ',rows_history);
+								let SendObj = {};
+								console.log('??');
+								SendObj = basic(rows_history);
+								console.log('basic : ',SendObj);
+								SendObj = AddKey(SendObj);
+								console.log('AddKey : ',SendObj);
+								let [rows_info] = await connection.query(user_info_sql);
+								let user_name = rows_info[0]['name'];
+								let user_age = rows_info[0]['age'];
+								let user_id = rows_info[0]['id'];
+								SendObj['id'] = user_id;
+								SendObj['name'] = user_name;
+								SendObj['age'] = user_age;
+								SendObj = JSON.stringify(SendObj);
+								console.log('stringify',SendObj);
+								connection.release();
+								ClientCamDeter.publish(cam_topics[2],SendObj,options);
+								semapore = true; 
+							}
+							catch(e){
+								console.log('query error');
+								connection.release();
+								semapore = true; 
+							}
 						}
 						catch(e){
-							console.log('query error');
-							connection.release();
+							console.log('pool error');
+							semapore = true; 
 						}
 					}
-					catch(e){
-						console.log('pool error');
-					}
-				}
-        	})
-		}
-		catch(e){
-			console.log('python error : ',e);
-		}        
-      }
-      else if(message==='2'){
-        console.log('at the toTx2... ',message);
-        ClientStatus.publish(topics[3],message,options);
-      }
+					
+				})
+			}
+			catch(e){
+				console.log('python error : ',e);
+				semapore = true; 
+			}       
+		  }
+		  else if(message==='2'){
+			console.log('at the toTx2... ',message);
+			semapore = false;
+			ClientStatus.publish(topics[3],message,options);
+			semapore = true;
+			}
+		  }
+      else{console.log('now process is running');}
     });
   });
 });
@@ -272,95 +290,9 @@ ClientJson.on('connect',function(){
 		console.log('subscribe on ',topics[2]);
 	ClientJson.on('message',async (topic,message,packet)=>{
       // message는 json형식일 것임
-        console.log('in complete');
-		message = toStr(message);
-		try{
-			message = toJson(message);
-		}
-		catch (e){
-			console.log('json error',message);
-		}
-		console.log('msg : ',message);
-		let id = message['id'];
-		let age = message['age'];
-		let get_auto_increment_sql = "select count(number) from kiosk.order;"
-		let auto_num = 0;
-		let orderlist = '';
-		try{
-			UnsortedOrderList = message['orderlist'];
-			const ordered = {};
-			Object.keys(UnsortedOrderList).sort().forEach(function(key) {
-				ordered[key] = UnsortedOrderList[key];
-			});
-			orderlist = makeOrderList(ordered);
-		}
-		catch(e){
-			console.log('order_list err');
-		}
-		//let auto_num = get_auto_num
-		let insert_order_sql = ``;
-		let insert_detail_sql='';
-		if(id==='Unknown'){
-			insert_order_sql = `insert into kiosk.order (age) values ('${age}')`;
-		}
-		else{
-			insert_order_sql = `insert into kiosk.order (member_id) values ('${id}')`;
-		}
-		try{
-			const connection = await pool.getConnection(async (conn)=>conn);
-			try{
-				await connection.beginTransaction();
-				let [rows_null] = await connection.query(insert_order_sql);
-				console.log('done insert order');
-				let [rows_auto_num] =await connection.query(get_auto_increment_sql);
-				console.log('done get auto');
-				let auto_num = rows_auto_num[0]['count(number)'];
-				insert_detail_sql = `insert into detail(order_number, orderlist) values (${auto_num}, ${orderlist})`;
-				[rows_null] = await connection.query(insert_detail_sql);
-				connection.commit();
-				connection.release();
-				console.log('done insert detail');
-			}
-			catch(e){
-				console.log('pool error');
-				connection.rollback();
-				connection.release();
-			}
-		}
-		catch(e){
-			console.log('pool error');
-		}
-		});
-	});
-})
-
-//----------------cam
-
-//sighup은 단순히 uuid만 반납
-
-ClientCamSignUp.on('connect',()=>{
-    ClientCamSignUp.subscribe(cam_topics[1],()=>{
-        console.log('subscribe on ',cam_topics[1]);
-        //message는 app에서 받아와야함
-        ClientCamSignUp.on('message',(topic,message,packet)=>{
-			console.log('into signup');
-            PythonShell.run('./signUp_tx2.py', option, (err, result) => {
-                if(err){
-                    throw err;
-                }
-                result = result[2].split(" ")
-                let id = result[0];
-				let info = `{'uuid':'${id}'}`;
-                ClientCamSignUp.publish(cam_topics[3],info,options);
-            })
-        })
-    })
-})
-ClientCamSignUpComplete.on('connect',()=>{
-	ClientCamSignUpComplete.subscribe(cam_topics[4],()=>{
-		console.log('subscribe on ',cam_topics[4]);
-		ClientCamSignUpComplete.on('message',async (topic,message,packet)=>{
-			console.log('into signup complete');
+		if(semapore===true){
+			console.log('in complete');
+			semapore = false;
 			message = toStr(message);
 			try{
 				message = toJson(message);
@@ -368,28 +300,146 @@ ClientCamSignUpComplete.on('connect',()=>{
 			catch (e){
 				console.log('json error',message);
 			}
-			console.log(message);
+			console.log('msg : ',message);
 			let id = message['id'];
-			let name = message['name'];
 			let age = message['age'];
-			let insert_sql = `insert into member (id,name,age) values ('${id}','${name}','${age}')`;
+			let get_auto_increment_sql = "select count(number) from kiosk.order;"
+			let auto_num = 0;
+			let orderlist = '';
+			try{
+				UnsortedOrderList = message['orderlist'];
+				const ordered = {};
+				Object.keys(UnsortedOrderList).sort().forEach(function(key) {
+					ordered[key] = UnsortedOrderList[key];
+				});
+				orderlist = makeOrderList(ordered);
+			}
+			catch(e){
+				console.log('order_list err');
+			}
+			//let auto_num = get_auto_num
+			let insert_order_sql = ``;
+			let insert_detail_sql='';
+			if(id==='Unknown'){
+				insert_order_sql = `insert into kiosk.order (age) values ('${age}')`;
+			}
+			else{
+				insert_order_sql = `insert into kiosk.order (member_id) values ('${id}')`;
+			}
 			try{
 				const connection = await pool.getConnection(async (conn)=>conn);
 				try{
 					await connection.beginTransaction();
-					const [rows] = await connection.query(insert_sql);
+					let [rows_null] = await connection.query(insert_order_sql);
+					console.log('done insert order');
+					let [rows_auto_num] =await connection.query(get_auto_increment_sql);
+					console.log('done get auto');
+					let auto_num = rows_auto_num[0]['count(number)'];
+					insert_detail_sql = `insert into detail(order_number, orderlist) values (${auto_num}, ${orderlist})`;
+					[rows_null] = await connection.query(insert_detail_sql);
 					connection.commit();
 					connection.release();
-					console.log('sinup complete', rows);
+					console.log('done insert detail');
+					semapore = true;
 				}
 				catch(e){
 					console.log('pool error');
+					connection.rollback();
 					connection.release();
+					semapore = true;
 				}
 			}
 			catch(e){
-				console.log('db error');
+				console.log('pool error');
+				semapore = true;
 			}
+		}
+		else{
+			console.log('now process is running');
+		}
+		
+		});
+	});
+})
+
+//----------------cam
+
+//sighup은 단순히 uuid만 반납
+function ChangeSemapore(){
+	if(semapore===true){semapore=false}
+	else{semapore=true}
+	return 0;
+}
+ClientCamSignUp.on('connect',()=>{
+    ClientCamSignUp.subscribe(cam_topics[1],()=>{
+        console.log('subscribe on ',cam_topics[1]);
+        //message는 app에서 받아와야함
+        ClientCamSignUp.on('message',(topic,message,packet)=>{
+			if(semapore===true){
+				console.log('into signup');
+				semapore = false;
+				PythonShell.run('./signUp_tx2.py', option, async (err, result) => {
+					if(err){
+						throw err;
+					}
+					result = result[2].split(" ")
+					let id = result[0];
+					let info = `{'uuid':'${id}'}`;
+					ClientCamSignUp.publish(cam_topics[3],info,options);
+					let semapore_temp = await ChangeSemapore();
+				})
+			}
+			else{
+				console.log('now process is running');
+			}
+			
+        })
+    })
+})
+ClientCamSignUpComplete.on('connect',()=>{
+	ClientCamSignUpComplete.subscribe(cam_topics[4],()=>{
+		console.log('subscribe on ',cam_topics[4]);
+		ClientCamSignUpComplete.on('message',async (topic,message,packet)=>{
+			if(semapore===true){
+				console.log('into signup complete');
+				semapore = false;
+				message = toStr(message);
+				try{
+					message = toJson(message);
+				}
+				catch (e){
+					console.log('json error',message);
+				}
+				console.log(message);
+				let id = message['id'];
+				let name = message['name'];
+				let age = message['age'];
+				let insert_sql = `insert into member (id,name,age) values ('${id}','${name}','${age}')`;
+				try{
+					const connection = await pool.getConnection(async (conn)=>conn);
+					try{
+						await connection.beginTransaction();
+						const [rows] = await connection.query(insert_sql);
+						connection.commit();
+						connection.release();
+						console.log('sinup complete', rows);
+						semapore = true;
+					}
+					catch(e){
+						console.log('pool error');
+						connection.release();
+						semapore = true;
+					}
+				}
+				catch(e){
+					console.log('db error');
+					semapore = true;
+				}
+			}
+			else{
+				console.log('now process is running');
+			}
+			
 		})
 	})
 })
