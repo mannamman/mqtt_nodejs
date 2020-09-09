@@ -9,7 +9,10 @@ const { PythonShell } = require('python-shell');
 const ip = '192.168.0.117';
 const url = "mqtt://" + ip;
 
+//
 let semapore = true;
+let season_term = [[3,6],[6,9],[9,12],[12,3]];
+//
 
 //---------------option
 const options = {
@@ -145,10 +148,55 @@ function basic(data){
 	pretty_yymmdd(data);
 	return data;
 }
-function AddKey(data){
+function AddKey(data,key){
 	let ObjData = {};
-	ObjData['history'] = data;
+	ObjData[key] = data;
 	return ObjData;
+}
+
+function favorite(data){
+	let Obj = {};
+	let result = [];
+	data.forEach((element)=>{
+		element['menu'].forEach((inelement)=>{
+			if(Obj[inelement]===undefined){
+				Obj[inelement] = 1;
+			}
+			else{
+				Obj[inelement] = Obj[inelement] + 1;
+			}
+		});
+	});
+	let sortable = [];
+	for (var i in Obj) {
+		sortable.push([i, Obj[i]]);
+	}
+	let sorted = sortable.sort(function(a, b) {
+		return a[1] - b[1];
+	});
+	sorted = sorted.reverse();
+	for(var i=0;i<sorted.length;i++){
+		if(i>5){break;}
+		result.push(sorted[i][0]);
+	}
+	return result;
+}
+
+function get_season(){
+	let date = new Date();
+	let month = date.getMonth();
+	if(month>=3 && month<=5){
+		return season_term[0];
+	}
+	else if(month>=6 && month<=8){
+		return season_term[1];
+	}
+	else if(month>=9 && month<=11){
+		return season_term[2];
+	}
+	else{
+		return season_term[3];
+	}
 }
 //-------------parse message
 
@@ -187,9 +235,16 @@ ClientStatus.on('connect', function() { // When connected
 					result = result[2].split(" ");
 					let age = result[1];
 					let id = result[0];
+					let cur_range = get_season();
+					let orand = 'and';
+					if(cur_range[0]===12){
+						orand = 'or';
+					}
+					let season_sql = `select json_extract(orderlist, '$[*]."menu"')as menu from kiosk.detail join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and  json_extract(orderlist, '$[0]."menu"') = menu.name where month(now()) >= ${cur_range[0]} ${orand} month(now()) <= ${cur_range[1]}`;
+					let hot_menu_sql = `select json_extract(orderlist, '$[*]."menu"')as menu from kiosk.detail join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and json_extract(orderlist, '$[0]."menu"') = menu.name order by kiosk.order.time desc limit 100`;
 					//temp
-					id = 'Unknown';
-					age = 25;
+					//id = 'Unknown';
+					//age = 25;
 					//temp
 					//let data = "id : "+result[0]+", "+"age : "+result[1];
 					//비회원
@@ -200,12 +255,15 @@ ClientStatus.on('connect', function() { // When connected
 							try{
 								let select_sql = `select json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time from kiosk.detail join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and  json_extract(orderlist, '$[0]."menu"') = menu.name where kiosk.order.member_id is null`;
 								let [rows] = await connection.query(select_sql);
-								connection.release();
+								let [rows_season] = await connection.query(season_sql);
+								let [rows_hot_menu] = await connection.query(hot_menu_sql);
 								rows = basic(rows);
-								rows = AddKey(rows);
+								rows = AddKeyHistory(rows);
 								rows['id'] = id;
 								rows['age'] = age;
 								rows['name'] = id;
+								rows['season'] = favorite(rows_season);
+								rows['hot'] = favorite(rows_hot_menu)
 								rows = JSON.stringify(rows);
 								connection.release();
 								ClientCamDeter.publish(cam_topics[2],rows,options);
@@ -228,16 +286,18 @@ ClientStatus.on('connect', function() { // When connected
 						try{
 							const connection = await pool.getConnection(async (conn)=>conn);
 							try{
-								let history_sql = `select json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time from kiosk.detail join kiosk.member join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and kiosk.member.id = kiosk.order.member_id and  json_extract(orderlist, '$[0]."menu"') = menu.name where member.id = '${id}' limit 5`;// menu count time
+								
+								let history_sql = `select json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time from kiosk.detail join kiosk.member join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and kiosk.member.id = kiosk.order.member_id and  json_extract(orderlist, '$[0]."menu"') = menu.name where member.id = '${id}'`;// menu count time
 								let user_info_sql = `select * from member where id = '${id}'`;//age name id
 								let [rows_history] = await connection.query(history_sql);
+								let [rows_season] = await connection.query(season_sql);
+								let [rows_hot_menu] = await connection.query(hot_menu_sql);
 								console.log('history : ',rows_history);
+								console.log('season : ',rows_season);
+								console.log('hot_menu : ',rows_hot_menu);
 								let SendObj = {};
-								console.log('??');
 								SendObj = basic(rows_history);
-								console.log('basic : ',SendObj);
-								SendObj = AddKey(SendObj);
-								console.log('AddKey : ',SendObj);
+								SendObj = AddKey(SendObj,'history');
 								let [rows_info] = await connection.query(user_info_sql);
 								let user_name = rows_info[0]['name'];
 								let user_age = rows_info[0]['age'];
@@ -245,6 +305,8 @@ ClientStatus.on('connect', function() { // When connected
 								SendObj['id'] = user_id;
 								SendObj['name'] = user_name;
 								SendObj['age'] = user_age;
+								SendObj['season'] = favorite(rows_season);
+								SendObj['hot'] = favorite(rows_hot_menu);
 								SendObj = JSON.stringify(SendObj);
 								console.log('stringify',SendObj);
 								connection.release();
