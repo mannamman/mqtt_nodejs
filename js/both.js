@@ -240,7 +240,7 @@ ClientStatus.on('connect', function() { // When connected
 					if(cur_range[0]===12){
 						orand = 'or';
 					}
-					let season_sql = `select json_extract(orderlist, '$[*]."menu"')as menu from kiosk.detail join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and  json_extract(orderlist, '$[0]."menu"') = menu.name where month(now()) >= ${cur_range[0]} ${orand} month(now()) <= ${cur_range[1]}`;
+					let season_sql = `select json_extract(orderlist, '$[*]."menu"')as menu from kiosk.detail join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and  json_extract(orderlist, '$[0]."menu"') = menu.name where month(kiosk.order.time) between ${cur_range[0]} and ${cur_range[1]}`;
 					let hot_menu_sql = `select json_extract(orderlist, '$[*]."menu"')as menu from kiosk.detail join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and json_extract(orderlist, '$[0]."menu"') = menu.name order by kiosk.order.time desc limit 100`;
 					//temp
 					//id = 'Unknown';
