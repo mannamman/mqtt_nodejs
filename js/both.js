@@ -254,19 +254,24 @@ ClientStatus.on('connect', function() { // When connected
 							const connection = await pool.getConnection(async (conn)=>conn);
 							try{
 								let select_sql = `select json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time from kiosk.detail join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and  json_extract(orderlist, '$[0]."menu"') = menu.name where kiosk.order.member_id is null`;
-								let [rows] = await connection.query(select_sql);
 								let [rows_season] = await connection.query(season_sql);
 								let [rows_hot_menu] = await connection.query(hot_menu_sql);
-								rows = basic(rows);
-								rows = AddKeyHistory(rows);
-								rows['id'] = id;
-								rows['age'] = age;
-								rows['name'] = id;
-								rows['season'] = favorite(rows_season);
-								rows['hot'] = favorite(rows_hot_menu)
-								rows = JSON.stringify(rows);
+								let test_ages = ['this','is','test','data','about','ages'];
+								let SendObj = {};
+								SendObj['id'] = id;
+								SendObj['name'] = id;
+								SendObj['age'] = age;
+								//SendObj['season'] = favorite(rows_season);
+								//SendObj['favorite'] = favorite(rows_hot_menu);
+								//SendObj['ages'] = test_ages;
+								SendObj['season'] = ["카페 아메리카노","카푸치노"];
+								SendObj['favorite'] = ["카푸치노","카페 모카"];
+								SendObj['ages'] = ["카페 모카","카페 아메리카노"];
+								SendObj['history'] = [{}];
+								SendObj = JSON.stringify(SendObj);
+								console.log('stringify',SendObj);
 								connection.release();
-								ClientCamDeter.publish(cam_topics[2],rows,options);
+								ClientCamDeter.publish(cam_topics[2],SendObj,options);
 								semapore = true; 
 							}
 							catch(e){
@@ -292,12 +297,13 @@ ClientStatus.on('connect', function() { // When connected
 								let [rows_history] = await connection.query(history_sql);
 								let [rows_season] = await connection.query(season_sql);
 								let [rows_hot_menu] = await connection.query(hot_menu_sql);
+								let test_ages = ['this','is','test','data','about','ages'];
 								console.log('history : ',rows_history);
 								console.log('season : ',rows_season);
 								console.log('hot_menu : ',rows_hot_menu);
 								let SendObj = {};
-								SendObj = basic(rows_history);
-								SendObj = AddKey(SendObj,'history');
+								//SendObj = basic(rows_history);
+								//SendObj = AddKey(SendObj,'history');
 								let [rows_info] = await connection.query(user_info_sql);
 								let user_name = rows_info[0]['name'];
 								let user_age = rows_info[0]['age'];
@@ -305,8 +311,13 @@ ClientStatus.on('connect', function() { // When connected
 								SendObj['id'] = user_id;
 								SendObj['name'] = user_name;
 								SendObj['age'] = user_age;
-								SendObj['season'] = favorite(rows_season);
-								SendObj['hot'] = favorite(rows_hot_menu);
+								//SendObj['season'] = favorite(rows_season);
+								//SendObj['favorite'] = favorite(rows_hot_menu);
+								//SendObj['ages'] = test_ages;
+								SendObj['season'] = ["카페 아메리카노", "카푸치노", "카페 모카"];
+								SendObj['favorite'] = ["카푸치노", "카페 아메리카노", "카페 모카"];
+								SendObj['ages'] = ["카페 모카", "카푸치노", "카페 아메리카노"];
+								SendObj['history'] = [{}];
 								SendObj = JSON.stringify(SendObj);
 								console.log('stringify',SendObj);
 								connection.release();
@@ -356,13 +367,14 @@ ClientJson.on('connect',function(){
 			console.log('in complete');
 			semapore = false;
 			message = toStr(message);
+			console.log('original message : ', message);
 			try{
 				message = toJson(message);
 			}
 			catch (e){
 				console.log('json error',message);
 			}
-			console.log('msg : ',message);
+			console.log('parsed msg : ',message);
 			let id = message['id'];
 			let age = message['age'];
 			let get_auto_increment_sql = "select count(number) from kiosk.order;"
@@ -379,9 +391,9 @@ ClientJson.on('connect',function(){
 			catch(e){
 				console.log('order_list err');
 			}
-			//let auto_num = get_auto_num
 			let insert_order_sql = ``;
 			let insert_detail_sql='';
+			
 			if(id==='Unknown'){
 				insert_order_sql = `insert into kiosk.order (age) values ('${age}')`;
 			}
@@ -389,14 +401,16 @@ ClientJson.on('connect',function(){
 				insert_order_sql = `insert into kiosk.order (member_id) values ('${id}')`;
 			}
 			try{
+				let auto_num = 0;
 				const connection = await pool.getConnection(async (conn)=>conn);
 				try{
+					
 					await connection.beginTransaction();
 					let [rows_null] = await connection.query(insert_order_sql);
 					console.log('done insert order');
 					let [rows_auto_num] =await connection.query(get_auto_increment_sql);
 					console.log('done get auto');
-					let auto_num = rows_auto_num[0]['count(number)'];
+					auto_num = rows_auto_num[0]['count(number)'];
 					insert_detail_sql = `insert into detail(order_number, orderlist) values (${auto_num}, ${orderlist})`;
 					[rows_null] = await connection.query(insert_detail_sql);
 					connection.commit();
@@ -405,8 +419,16 @@ ClientJson.on('connect',function(){
 					semapore = true;
 				}
 				catch(e){
-					console.log('pool error');
+					console.log('pool error',e);
 					connection.rollback();
+					try{
+						const init_auto_increment = `alter table kiosk.order auto_increment=${auto_num};`;
+						let [rows_auto_increment] = await connection.query(init_auto_increment);
+						console.log('done init auto_increment');
+					}
+					catch(init_e){
+						console.log('auto_increment init error',init_e);
+					}
 					connection.release();
 					semapore = true;
 				}
@@ -446,8 +468,7 @@ ClientCamSignUp.on('connect',()=>{
 					}
 					result = result[2].split(" ")
 					let id = result[0];
-					let info = `{'uuid':'${id}'}`;
-					ClientCamSignUp.publish(cam_topics[3],info,options);
+					ClientCamSignUp.publish(cam_topics[3],id,options);
 					let semapore_temp = await ChangeSemapore();
 				})
 			}
@@ -472,17 +493,15 @@ ClientCamSignUpComplete.on('connect',()=>{
 				catch (e){
 					console.log('json error',message);
 				}
-				console.log(message);
-				let id = message['id'];
-				let name = message['name'];
-				let age = message['age'];
-				let insert_sql = `insert into member (id,name,age) values ('${id}','${name}','${age}')`;
 				try{
+					console.log(message);
+					let id = message['uuid'];
+					let name = message['name'];
+					let age = message['age'];
+					let insert_sql = `insert into member (id,name,age) values ('${id}','${name}','${age}')`;
 					const connection = await pool.getConnection(async (conn)=>conn);
 					try{
-						await connection.beginTransaction();
 						const [rows] = await connection.query(insert_sql);
-						connection.commit();
 						connection.release();
 						console.log('sinup complete', rows);
 						semapore = true;
