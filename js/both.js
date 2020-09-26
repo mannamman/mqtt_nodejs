@@ -28,13 +28,14 @@ const option = {
 };
 
 //-----------------clinet connect
-const topics=['/status/toTx2','/status/wait','/status/complete','/motor'];
+const topics=['/status/toTx2','/status/wait','/status/complete','/motor','/app/options'];
 const cam_topics=['/cam/tx2/deter','/cam/tx2/signup','/cam/app/deter','/cam/app/signup','/cam/tx2/signup/complete'];
 let ClientStatus = mqtt.connect(url, options);
 let ClientJson = mqtt.connect(url, options);
 let ClientCamDeter = mqtt.connect(url,options);
 let ClientCamSignUp = mqtt.connect(url,options);
 let ClientCamSignUpComplete = mqtt.connect(url,options);
+let ClientOptions = mqtt.connect(url,options);
 //-----------------clinet connect
 
 
@@ -243,8 +244,8 @@ ClientStatus.on('connect', function() { // When connected
 					let season_sql = `select json_extract(orderlist, '$[*]."menu"')as menu from kiosk.detail join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and  json_extract(orderlist, '$[0]."menu"') = menu.name where month(kiosk.order.time) between ${cur_range[0]} and ${cur_range[1]}`;
 					let hot_menu_sql = `select json_extract(orderlist, '$[*]."menu"')as menu from kiosk.detail join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and json_extract(orderlist, '$[0]."menu"') = menu.name order by kiosk.order.time desc limit 100`;
 					//temp
-					//id = 'Unknown';
-					//age = 25;
+					id = 'Unknown';
+					age = 25;
 					//temp
 					//let data = "id : "+result[0]+", "+"age : "+result[1];
 					//비회원
@@ -254,19 +255,20 @@ ClientStatus.on('connect', function() { // When connected
 							const connection = await pool.getConnection(async (conn)=>conn);
 							try{
 								let select_sql = `select json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time from kiosk.detail join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and  json_extract(orderlist, '$[0]."menu"') = menu.name where kiosk.order.member_id is null`;
+								let ages_sql = `select json_extract(orderlist, '$[*]."menu"')as menu from kiosk.detail join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and json_extract(orderlist, '$[0]."menu"') = menu.name where kiosk.order.age = '${age}' order by time desc limit 50`;
 								let [rows_season] = await connection.query(season_sql);
 								let [rows_hot_menu] = await connection.query(hot_menu_sql);
-								let test_ages = ['this','is','test','data','about','ages'];
+								let [rows_ages] = await connection.query(ages_sql);
 								let SendObj = {};
 								SendObj['id'] = id;
 								SendObj['name'] = id;
 								SendObj['age'] = age;
-								//SendObj['season'] = favorite(rows_season);
-								//SendObj['favorite'] = favorite(rows_hot_menu);
-								//SendObj['ages'] = test_ages;
-								SendObj['season'] = ["카페 아메리카노","카푸치노"];
-								SendObj['favorite'] = ["카푸치노","카페 모카"];
-								SendObj['ages'] = ["카페 모카","카페 아메리카노"];
+								SendObj['season'] = favorite(rows_season);
+								SendObj['favorite'] = favorite(rows_hot_menu);
+								SendObj['ages'] = favorite(rows_ages);
+								//SendObj['season'] = ["카페 아메리카노","카푸치노"];
+								//SendObj['favorite'] = ["카푸치노","카페 모카"];
+								//SendObj['ages'] = ["카페 모카","카페 아메리카노"];
 								SendObj['history'] = [{}];
 								SendObj = JSON.stringify(SendObj);
 								console.log('stringify',SendObj);
@@ -294,16 +296,19 @@ ClientStatus.on('connect', function() { // When connected
 								
 								let history_sql = `select json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time from kiosk.detail join kiosk.member join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and kiosk.member.id = kiosk.order.member_id and  json_extract(orderlist, '$[0]."menu"') = menu.name where member.id = '${id}'`;// menu count time
 								let user_info_sql = `select * from member where id = '${id}'`;//age name id
+								let options_sql = `SELECT menu, cupSize, shot, syrup, base, whipping, drizzle, ice, price, member_id FROM kiosk.options where member_id ="${id}"`;
+								let ages_sql = `select json_extract(orderlist, '$[*]."menu"')as menu from kiosk.detail join kiosk.member join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and kiosk.member.id = kiosk.order.member_id and json_extract(orderlist, '$[0]."menu"') = menu.name where kiosk.member.age = '${age}' order by time desc limit 50`;
 								let [rows_history] = await connection.query(history_sql);
 								let [rows_season] = await connection.query(season_sql);
 								let [rows_hot_menu] = await connection.query(hot_menu_sql);
-								let test_ages = ['this','is','test','data','about','ages'];
+								let [rows_options] = await connection.query(options_sql);
+								let [rows_ages] = await connection.query(ages_sql);
 								console.log('history : ',rows_history);
 								console.log('season : ',rows_season);
 								console.log('hot_menu : ',rows_hot_menu);
 								let SendObj = {};
-								//SendObj = basic(rows_history);
-								//SendObj = AddKey(SendObj,'history');
+								SendObj = basic(rows_history);
+								SendObj = AddKey(SendObj,'history');
 								let [rows_info] = await connection.query(user_info_sql);
 								let user_name = rows_info[0]['name'];
 								let user_age = rows_info[0]['age'];
@@ -311,13 +316,14 @@ ClientStatus.on('connect', function() { // When connected
 								SendObj['id'] = user_id;
 								SendObj['name'] = user_name;
 								SendObj['age'] = user_age;
-								//SendObj['season'] = favorite(rows_season);
-								//SendObj['favorite'] = favorite(rows_hot_menu);
-								//SendObj['ages'] = test_ages;
-								SendObj['season'] = ["카페 아메리카노", "카푸치노", "카페 모카"];
-								SendObj['favorite'] = ["카푸치노", "카페 아메리카노", "카페 모카"];
-								SendObj['ages'] = ["카페 모카", "카푸치노", "카페 아메리카노"];
-								SendObj['history'] = [{}];
+								SendObj['season'] = favorite(rows_season);
+								SendObj['favorite'] = favorite(rows_hot_menu);
+								SendObj['ages'] = favorite(rows_ages);
+								//SendObj['season'] = ["카페 아메리카노", "카푸치노", "카페 모카"];
+								//SendObj['favorite'] = ["카푸치노", "카페 아메리카노", "카페 모카"];
+								//SendObj['ages'] = ["카페 모카", "카푸치노", "카페 아메리카노"];
+								//SendObj['history'] = [{}];
+								SendObj['options'] = rows_options;
 								SendObj = JSON.stringify(SendObj);
 								console.log('stringify',SendObj);
 								connection.release();
@@ -444,6 +450,66 @@ ClientJson.on('connect',function(){
 		
 		});
 	});
+});
+function make_option(data){
+	let result = '';
+	data = Object.values(data);
+	console.log('in make option', data);
+	const length = data.length - 1;
+	for(var i =0;i<length;i++){
+		result = result+`"${data[i]}",`
+	}
+	result = result + `"${data[length]}"`;
+	console.log('result',result);
+	return result;
+}
+// subs options
+ClientOptions.on('connect',()=>{
+    ClientOptions.subscribe(topics[4],()=>{
+        console.log('subscribe on ',topics[4]);
+        ClientOptions.on('message',async(topic,message,packet)=>{
+			if(semapore===true){
+				console.log('into options');
+				semapore = false;
+				message = toStr(message);
+				console.log('original message : ', message);
+				try{
+					message = toJson(message);
+				}
+				catch (e){
+					console.log('json error',message);
+				}
+				
+				try{
+					const connection = await pool.getConnection(async (conn)=>conn);
+					console.log('before make options',message);
+					const insert_value = await make_option(message);
+					console.log(insert_value);
+					try{
+						let insert_options_sql = `insert into options (menu, cupSize, shot, syrup, base, whipping, drizzle, ice, price, member_id) values (${insert_value})`
+						let [rows_null] = await connection.query(insert_options_sql);
+						console.log('done insert option');
+						connection.release();
+						semapore = true;
+					}
+					catch (e) {
+						console.log('query error',e);
+						connection.release();
+						semapore = true;
+					}
+				}
+				catch (e){
+					console.log('pool error');
+					semapore = true;
+				}
+				
+			}
+			else{
+				console.log('now process is running');
+			}
+			
+        })
+    })
 })
 
 //----------------cam
