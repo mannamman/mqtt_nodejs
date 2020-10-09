@@ -17,7 +17,7 @@ let season_term = [[3,6],[6,9],[9,12],[12,3]];
 //---------------option
 const options = {
     retain:false,
-    qos:0
+    qos:2
 };
 const option = {
         mode: 'text',
@@ -263,12 +263,12 @@ ClientStatus.on('connect', function() { // When connected
 								SendObj['id'] = id;
 								SendObj['name'] = id;
 								SendObj['age'] = age;
-								SendObj['season'] = favorite(rows_season);
-								SendObj['favorite'] = favorite(rows_hot_menu);
-								SendObj['ages'] = favorite(rows_ages);
-								//SendObj['season'] = ["카페 아메리카노","카푸치노"];
-								//SendObj['favorite'] = ["카푸치노","카페 모카"];
-								//SendObj['ages'] = ["카페 모카","카페 아메리카노"];
+								//SendObj['season'] = favorite(rows_season);
+								//SendObj['favorite'] = favorite(rows_hot_menu);
+								//SendObj['ages'] = favorite(rows_ages);
+								SendObj['season'] = ["카페 아메리카노","카푸치노"];
+								SendObj['favorite'] = ["카푸치노","카페 모카"];
+								SendObj['ages'] = ["카페 모카","카페 아메리카노"];
 								SendObj['history'] = [{}];
 								SendObj = JSON.stringify(SendObj);
 								console.log('stringify',SendObj);
@@ -469,10 +469,12 @@ ClientOptions.on('connect',()=>{
         console.log('subscribe on ',topics[4]);
         ClientOptions.on('message',async(topic,message,packet)=>{
 			if(semapore===true){
+				message = message.toString();
+				console.log('original message : ', message);
+				message = message.slice(1,message.length-1);
 				console.log('into options');
 				semapore = false;
-				message = toStr(message);
-				console.log('original message : ', message);
+				console.log('after slice ',message);
 				try{
 					message = toJson(message);
 				}
@@ -532,8 +534,10 @@ ClientCamSignUp.on('connect',()=>{
 					if(err){
 						throw err;
 					}
+					console.log(result);
 					result = result[2].split(" ")
 					let id = result[0];
+					console.log('sign up id ',id);
 					ClientCamSignUp.publish(cam_topics[3],id,options);
 					let semapore_temp = await ChangeSemapore();
 				})
@@ -545,6 +549,18 @@ ClientCamSignUp.on('connect',()=>{
         })
     })
 })
+const setParams = (message) => {
+	const id = message['uuid'];
+	const name = message['name'];
+	const age = message['age'];
+	return new Promise((resolve,reject)=>{
+			if(id===undefined){
+				reject('error');
+			}
+			const sql = `insert into member (id,name,age) values ('${id}','${name}','${age}')`;
+			resolve(sql);
+	});
+}
 ClientCamSignUpComplete.on('connect',()=>{
 	ClientCamSignUpComplete.subscribe(cam_topics[4],()=>{
 		console.log('subscribe on ',cam_topics[4]);
@@ -552,7 +568,7 @@ ClientCamSignUpComplete.on('connect',()=>{
 			if(semapore===true){
 				console.log('into signup complete');
 				semapore = false;
-				message = toStr(message);
+				message = toStr(message[0]);
 				try{
 					message = toJson(message);
 				}
@@ -561,10 +577,12 @@ ClientCamSignUpComplete.on('connect',()=>{
 				}
 				try{
 					console.log(message);
-					let id = message['uuid'];
-					let name = message['name'];
-					let age = message['age'];
+					const id = message['uuid'];
+					const name = message['name'];
+					const age = message['age'];
+					// let insert_sql = await setParams(message[0]);
 					let insert_sql = `insert into member (id,name,age) values ('${id}','${name}','${age}')`;
+					console.log(insert_sql);
 					const connection = await pool.getConnection(async (conn)=>conn);
 					try{
 						const [rows] = await connection.query(insert_sql);
@@ -572,14 +590,14 @@ ClientCamSignUpComplete.on('connect',()=>{
 						console.log('sinup complete', rows);
 						semapore = true;
 					}
-					catch(e){
-						console.log('pool error');
+					catch(error){
+						console.log('pool error',error);
 						connection.release();
 						semapore = true;
 					}
 				}
 				catch(e){
-					console.log('db error');
+					console.log('db error',e);
 					semapore = true;
 				}
 			}
