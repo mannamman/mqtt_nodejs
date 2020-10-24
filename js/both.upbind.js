@@ -431,9 +431,11 @@ ClientJson.on('connect',function(){
 						const init_auto_increment = `alter table kiosk.order auto_increment=${auto_num};`;
 						let [rows_auto_increment] = await connection.query(init_auto_increment);
 						console.log('done init auto_increment');
+						semapore = await toggle_semapore();	
 					}
 					catch(init_e){
 						console.log('auto_increment init error',init_e);
+						semapore = await toggle_semapore();	
 					}
 					connection.release();
 					
@@ -441,7 +443,7 @@ ClientJson.on('connect',function(){
 			}
 			catch(e){
 				console.log('pool error');
-				
+				semapore = await toggle_semapore();	
 			}
 		}
 		else{
