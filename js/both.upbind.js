@@ -366,10 +366,11 @@ ClientJson.on('connect',function(){
 	ClientJson.subscribe(topics[2],()=>{
 		console.log('subscribe on ',topics[2]);
 	ClientJson.on('message',async (topic,message,packet)=>{
-      // message는 json형식일 것임
+	  // message는 json형식일 것임
+	  	semapore = await toggle_semapore();	
 		if(semapore===true){
 			console.log('in complete');
-			
+			semapore = await toggle_semapore();		
 			message = toStr(message);
 			console.log('original message : ', message);
 			try{
