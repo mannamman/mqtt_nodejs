@@ -270,9 +270,9 @@ ClientStatus.on('connect', function() { // When connected
 								//SendObj['season'] = favorite(rows_season);
 								//SendObj['favorite'] = favorite(rows_hot_menu);
 								//SendObj['ages'] = favorite(rows_ages);
-								SendObj['season'] = ["카페 아메리카노","카푸치노"];
-								SendObj['favorite'] = ["카푸치노","카페 모카"];
-								SendObj['ages'] = ["카페 모카","카페 아메리카노"];
+								SendObj['season'] =favorite(rows_season);
+								SendObj['favorite'] = favorite(rows_hot_menu)
+								SendObj['ages'] = favorite(rows_ages);
 								SendObj['history'] = [{}];
 								SendObj = JSON.stringify(SendObj);
 								console.log('stringify',SendObj);
