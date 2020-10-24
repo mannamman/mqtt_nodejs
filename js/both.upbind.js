@@ -129,6 +129,11 @@ function mymake(data){
     return send_json;
 }
 
+const toggle_semapore = () => {
+	return new Promise((resolve)=>{
+		resolve(!semapore)
+	})
+}
 
 function pretty_yymmdd(data){
 	for(var i=0;i<data.length;i++){
@@ -207,23 +212,20 @@ ClientStatus.on('connect', function() { // When connected
     console.log('subscribe on ',topics[0]);
     
     // 가정 1하강, 0정지, 2 상승
-    ClientStatus.on('message', function(topic, message, packet) {
+    ClientStatus.on('message', async function(topic, message, packet) {
       message = toStr(message);
       // title -> wait, wait -> face
       if(semapore===true){
 		  if(message==='1'){
 			console.log('at the toTx2... ',message);
-			semapore = false;
 			ClientStatus.publish(topics[1],message,options);
 			ClientStatus.publish(topics[3],message,options);
-			semapore = true;
 		  }
       
       //멈추었을시 정지했다고 알린후 얼굴판별후 DB접근
 		  else if(message==='0'){
 			console.log('at the toTx2... ',message);
-			semapore = false;
-			
+			semapore = await toggle_semapore();
 			//topics[1]은 app에게 3은 motor
 			ClientStatus.publish(topics[1],message,options);
 			ClientStatus.publish(topics[3],message,options);
@@ -274,17 +276,17 @@ ClientStatus.on('connect', function() { // When connected
 								console.log('stringify',SendObj);
 								connection.release();
 								ClientCamDeter.publish(cam_topics[2],SendObj,options);
-								semapore = true; 
+								
 							}
 							catch(e){
 								console.log('query error');
 								connection.release();
-								semapore = true; 
+								
 							}
 						}
 						catch(e){
 							console.log('pool error');
-							semapore = true; 
+							
 						}
 					}
 					//회원
@@ -328,17 +330,17 @@ ClientStatus.on('connect', function() { // When connected
 								console.log('stringify',SendObj);
 								connection.release();
 								ClientCamDeter.publish(cam_topics[2],SendObj,options);
-								semapore = true; 
+								
 							}
 							catch(e){
 								console.log('query error');
 								connection.release();
-								semapore = true; 
+								
 							}
 						}
 						catch(e){
 							console.log('pool error');
-							semapore = true; 
+							
 						}
 					}
 					
@@ -346,15 +348,8 @@ ClientStatus.on('connect', function() { // When connected
 			}
 			catch(e){
 				console.log('python error : ',e);
-				semapore = true; 
+				
 			}       
-		  }
-		  else if(message==='2'){
-			console.log('at the toTx2... ',message);
-			semapore = false;
-			// ClientStatus.publish(topics[3],message,options);
-			semapore = true;
-			}
 		  }
       else{console.log('now process is running');}
     });
@@ -371,7 +366,7 @@ ClientJson.on('connect',function(){
       // message는 json형식일 것임
 		if(semapore===true){
 			console.log('in complete');
-			semapore = false;
+			
 			message = toStr(message);
 			console.log('original message : ', message);
 			try{
@@ -422,7 +417,7 @@ ClientJson.on('connect',function(){
 					connection.commit();
 					connection.release();
 					console.log('done insert detail');
-					semapore = true;
+					semapore = await toggle_semapore();
 				}
 				catch(e){
 					console.log('pool error',e);
@@ -437,13 +432,13 @@ ClientJson.on('connect',function(){
 					}
 					connection.release();
 					ClientStatus.publish(topics[3],'2',options);
-					semapore = true;
+					
 				}
 			}
 			catch(e){
 				console.log('pool error');
 				ClientStatus.publish(topics[3],'2',options);
-				semapore = true;
+				
 			}
 		}
 		else{
@@ -470,12 +465,11 @@ ClientOptions.on('connect',()=>{
     ClientOptions.subscribe(topics[4],()=>{
         console.log('subscribe on ',topics[4]);
         ClientOptions.on('message',async(topic,message,packet)=>{
-			if(semapore===true){
 				message = message.toString();
 				console.log('original message : ', message);
 				message = message.slice(1,message.length-1);
 				console.log('into options');
-				semapore = false;
+				
 				console.log('after slice ',message);
 				try{
 					message = toJson(message);
@@ -494,23 +488,20 @@ ClientOptions.on('connect',()=>{
 						let [rows_null] = await connection.query(insert_options_sql);
 						console.log('done insert option');
 						connection.release();
-						semapore = true;
+						
 					}
 					catch (e) {
 						console.log('query error',e);
 						connection.release();
-						semapore = true;
+						
 					}
 				}
 				catch (e){
 					console.log('pool error');
-					semapore = true;
+					
 				}
 				
-			}
-			else{
-				console.log('now process is running');
-			}
+		
 			
         })
     })
@@ -519,19 +510,13 @@ ClientOptions.on('connect',()=>{
 //----------------cam
 
 //sighup은 단순히 uuid만 반납
-function ChangeSemapore(){
-	if(semapore===true){semapore=false}
-	else{semapore=true}
-	return 0;
-}
 ClientCamSignUp.on('connect',()=>{
     ClientCamSignUp.subscribe(cam_topics[1],()=>{
         console.log('subscribe on ',cam_topics[1]);
         //message는 app에서 받아와야함
         ClientCamSignUp.on('message',(topic,message,packet)=>{
-			if(semapore===true){
 				console.log('into signup');
-				semapore = false;
+				
 				PythonShell.run('./signUp_tx2.py', option, async (err, result) => {
 					if(err){
 						throw err;
@@ -541,12 +526,7 @@ ClientCamSignUp.on('connect',()=>{
 					let id = result[0];
 					console.log('sign up id ',id);
 					ClientCamSignUp.publish(cam_topics[3],id,options);
-					let semapore_temp = await ChangeSemapore();
 				})
-			}
-			else{
-				console.log('now process is running');
-			}
 			
         })
     })
@@ -567,9 +547,9 @@ ClientCamSignUpComplete.on('connect',()=>{
 	ClientCamSignUpComplete.subscribe(cam_topics[4],()=>{
 		console.log('subscribe on ',cam_topics[4]);
 		ClientCamSignUpComplete.on('message',async (topic,message,packet)=>{
-			if(semapore===true){
+			
 				console.log('into signup complete');
-				semapore = false;
+				
 				message = toStr(message[0]);
 				try{
 					message = toJson(message);
@@ -590,22 +570,18 @@ ClientCamSignUpComplete.on('connect',()=>{
 						const [rows] = await connection.query(insert_sql);
 						connection.release();
 						console.log('sinup complete', rows);
-						semapore = true;
+						
 					}
 					catch(error){
 						console.log('pool error',error);
 						connection.release();
-						semapore = true;
+						
 					}
 				}
 				catch(e){
 					console.log('db error',e);
-					semapore = true;
+					
 				}
-			}
-			else{
-				console.log('now process is running');
-			}
 			
 		})
 	})
