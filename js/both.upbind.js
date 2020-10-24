@@ -348,11 +348,10 @@ ClientStatus.on('connect', function() { // When connected
 			}
 			catch(e){
 				console.log('python error : ',e);
-				
 			}       
 		  }
-      else{console.log('now process is running');}
-    });
+	}
+	else{console.log('now process is running');}
   });
 });
 
