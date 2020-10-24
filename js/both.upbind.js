@@ -352,7 +352,7 @@ ClientStatus.on('connect', function() { // When connected
 		  else if(message==='2'){
 			console.log('at the toTx2... ',message);
 			semapore = false;
-			ClientStatus.publish(topics[3],message,options);
+			// ClientStatus.publish(topics[3],message,options);
 			semapore = true;
 			}
 		  }
@@ -436,11 +436,13 @@ ClientJson.on('connect',function(){
 						console.log('auto_increment init error',init_e);
 					}
 					connection.release();
+					ClientStatus.publish(topics[3],'2',options);
 					semapore = true;
 				}
 			}
 			catch(e){
 				console.log('pool error');
+				ClientStatus.publish(topics[3],'2',options);
 				semapore = true;
 			}
 		}
