@@ -421,8 +421,8 @@ ClientJson.on('connect',function(){
 					connection.commit();
 					connection.release();
 					console.log('done insert detail');
-					ClientStatus.publish(topics[3],"2",options);
-					semapore = await toggle_semapore();	
+					
+					
 				}
 				catch(e){
 					console.log('pool error',e);
@@ -432,10 +432,12 @@ ClientJson.on('connect',function(){
 						let [rows_auto_increment] = await connection.query(init_auto_increment);
 						console.log('done init auto_increment');
 						semapore = await toggle_semapore();	
+						ClientStatus.publish(topics[3],"2",options);
 					}
 					catch(init_e){
 						console.log('auto_increment init error',init_e);
 						semapore = await toggle_semapore();	
+						ClientStatus.publish(topics[3],"2",options);
 					}
 					connection.release();
 					
