@@ -323,7 +323,7 @@ ClientStatus.on('connect', function() { // When connected
 								SendObj['season'] = favorite(rows_season);
 								SendObj['favorite'] = favorite(rows_hot_menu);
 								SendObj['ages'] = favorite(rows_ages);
-								SendObj['ages'] = ["쿨 라임 피지오","자몽 셔벗 블렌디드", "카페 아메리카노", "콜드 브루","화이트 초콜릿 모카"];
+								SendObj['ages'] = ["쿨 라임 피지오","자몽 셔벗 블렌디드", "카페 아메리카노", "콜드 브루","화이트 초콜릿 모카", "블루베리 베이글", "럼 샷 코르타도"];
 								//SendObj['season'] = ["카페 아메리카노", "카푸치노", "카페 모카"];
 								//SendObj['favorite'] = ["카푸치노", "카페 아메리카노", "카페 모카"];
 								//SendObj['ages'] = ["카페 모카", "카푸치노", "카페 아메리카노"];
