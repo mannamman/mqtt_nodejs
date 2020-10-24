@@ -547,6 +547,8 @@ ClientCamSignUpComplete.on('connect',()=>{
 			
 				console.log('into signup complete');
 				console.log('origin message : ', message);
+				message = message.toString();
+				console.log('toString', message);
 				message = toStr(message[0]);
 				try{
 					message = toJson(message);
