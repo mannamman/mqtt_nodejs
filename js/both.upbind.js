@@ -421,7 +421,8 @@ ClientJson.on('connect',function(){
 					connection.commit();
 					connection.release();
 					console.log('done insert detail');
-					
+					semapore = await toggle_semapore();	
+					ClientStatus.publish(topics[3],"2",options);
 					
 				}
 				catch(e){
