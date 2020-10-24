@@ -38,6 +38,11 @@ let ClientCamSignUpComplete = mqtt.connect(url,options);
 let ClientOptions = mqtt.connect(url,options);
 //-----------------clinet connect
 
+const toggle_semapore =() => {
+	return new Promise((resolve)=>{
+		resolve(!semapore);
+	})	
+}
 
 //-------------parse message
 const toStr = (message)=>{
@@ -129,11 +134,6 @@ function mymake(data){
     return send_json;
 }
 
-const toggle_semapore = () => {
-	return new Promise((resolve)=>{
-		resolve(!semapore)
-	})
-}
 
 function pretty_yymmdd(data){
 	for(var i=0;i<data.length;i++){
@@ -218,8 +218,10 @@ ClientStatus.on('connect', function() { // When connected
       if(semapore===true){
 		  if(message==='1'){
 			console.log('at the toTx2... ',message);
+			
 			ClientStatus.publish(topics[1],message,options);
 			ClientStatus.publish(topics[3],message,options);
+			
 		  }
       
       //멈추었을시 정지했다고 알린후 얼굴판별후 DB접근
@@ -348,10 +350,12 @@ ClientStatus.on('connect', function() { // When connected
 			}
 			catch(e){
 				console.log('python error : ',e);
+				
 			}       
 		  }
-	}
-	else{console.log('now process is running');}
+		  }
+      else{console.log('now process is running');}
+    });
   });
 });
 
@@ -416,7 +420,8 @@ ClientJson.on('connect',function(){
 					connection.commit();
 					connection.release();
 					console.log('done insert detail');
-					semapore = await toggle_semapore();
+					ClientStatus.publish(topics[3],"2",options);
+					semapore = await toggle_semapore();	
 				}
 				catch(e){
 					console.log('pool error',e);
@@ -430,13 +435,11 @@ ClientJson.on('connect',function(){
 						console.log('auto_increment init error',init_e);
 					}
 					connection.release();
-					ClientStatus.publish(topics[3],'2',options);
 					
 				}
 			}
 			catch(e){
 				console.log('pool error');
-				ClientStatus.publish(topics[3],'2',options);
 				
 			}
 		}
@@ -500,7 +503,6 @@ ClientOptions.on('connect',()=>{
 					
 				}
 				
-		
 			
         })
     })
@@ -509,11 +511,13 @@ ClientOptions.on('connect',()=>{
 //----------------cam
 
 //sighup은 단순히 uuid만 반납
+
 ClientCamSignUp.on('connect',()=>{
     ClientCamSignUp.subscribe(cam_topics[1],()=>{
         console.log('subscribe on ',cam_topics[1]);
         //message는 app에서 받아와야함
         ClientCamSignUp.on('message',(topic,message,packet)=>{
+			
 				console.log('into signup');
 				
 				PythonShell.run('./signUp_tx2.py', option, async (err, result) => {
@@ -530,18 +534,6 @@ ClientCamSignUp.on('connect',()=>{
         })
     })
 })
-const setParams = (message) => {
-	const id = message['uuid'];
-	const name = message['name'];
-	const age = message['age'];
-	return new Promise((resolve,reject)=>{
-			if(id===undefined){
-				reject('error');
-			}
-			const sql = `insert into member (id,name,age) values ('${id}','${name}','${age}')`;
-			resolve(sql);
-	});
-}
 ClientCamSignUpComplete.on('connect',()=>{
 	ClientCamSignUpComplete.subscribe(cam_topics[4],()=>{
 		console.log('subscribe on ',cam_topics[4]);
