@@ -1,0 +1,1 @@
+mosquitto_pub -h 192.168.0.117 -t /app/options -m '{"menuName":"쿨 라임 피지오","ishot":"hot","cupSize":"Grande","shot":"NULL","syrup":"3 pump","base":"NULL","whipping":"NULL","drizzle":"NULL","ice":"NULL","price:"6800"}'
