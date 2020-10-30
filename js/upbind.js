@@ -468,14 +468,25 @@ ClientJson.on('connect', function () {
 });
 function make_option(data) {
 	let result = '';
-	data = Object.values(data);
-	console.log('in make option', data);
-	const length = data.length - 1;
-	for (var i = 0; i < length; i++) {
-		result = result + `"${data[i]}",`
-	}
-	result = result + `"${data[length]}"`;
-	console.log('result', result);
+	result = result + `"${data.cupSize}"`;
+	result = result + `"${data.menu}"`;
+	result = result + `"${data.shot}"`;
+	result = result + `"${data.syrup}"`;
+	result = result + `"${data.base}"`;
+	result = result + `"${data.whipping}"`;
+	result = result + `"${data.drizzle}"`;
+	result = result + `"${data.ice}"`;
+	result = result + `"${data.price}"`;
+	result = result + `"${data.uuid}"`;
+	// data = Object.values(data);
+	// console.log('in make option', data);
+	// const length = data.length - 1;
+	// for (var i = 0; i < length; i++) {
+	// 	result = result + `"${data[i]}",`
+	// }
+	// result = result + `"${data[length]}"`;
+	// console.log('result', result);
+	console.log("options result", result);
 	return result;
 }
 // subs options
@@ -499,13 +510,15 @@ ClientOptions.on('connect', () => {
 			try {
 				const connection = await pool.getConnection(async (conn) => conn);
 				console.log('before make options', message);
+				const id = message.id;
+				delete message.id;
 				const insert_value = make_option(message);
 				console.log(insert_value);
 				try {
 					let insert_options_sql = `insert into options (menu, cupSize, shot, syrup, base, whipping, drizzle, ice, price, member_id) values (${insert_value})`
 					let [rows_null] = await connection.query(insert_options_sql);
 					console.log('done insert option');
-					connection.release();
+					connection.release();{"base":"NULL","cupSize":"Grande","drizzle":"NULL","ice":"NULL","ishot":"hot","menuName":"매직 팝 스플래쉬 피지오","price":"7100","shot":"NULL","syrup":"2 pump","whipping":"NULL"}
 
 				}
 				catch (e) {
