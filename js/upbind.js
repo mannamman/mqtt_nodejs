@@ -262,7 +262,12 @@ ClientStatus.on('connect', function () { // When connected
 									const connection = await pool.getConnection(async (conn) => conn);
 									try {
 										let select_sql = `select json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time from kiosk.detail join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and  json_extract(orderlist, '$[0]."menu"') = menu.name where kiosk.order.member_id is null`;
-										let ages_sql = `select json_extract(orderlist, '$[*]."menu"')as menu from kiosk.detail join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and json_extract(orderlist, '$[0]."menu"') = menu.name where kiosk.order.age = '${age}' order by time desc limit 50`;
+										let ages_sql = `select json_extract(orderlist, '$[*]."menu"')as menu
+										from kiosk.detail
+										join kiosk.order
+										join kiosk.menu
+										on kiosk.order.number = kiosk.detail.order_number and json_extract(orderlist, '$[0]."menu"') = menu.name
+										where kiosk.order.age between ${age-10} and ${age+10} order by time desc limit 50`;
 										let [rows_season] = await connection.query(season_sql);
 										let [rows_hot_menu] = await connection.query(hot_menu_sql);
 										let [rows_ages] = await connection.query(ages_sql);
@@ -303,7 +308,12 @@ ClientStatus.on('connect', function () { // When connected
 										let history_sql = `select json_extract(orderlist, '$[*]."menu"')as menu, json_extract(orderlist, '$[*]."count"') as count, kiosk.order.time from kiosk.detail join kiosk.member join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and kiosk.member.id = kiosk.order.member_id and  json_extract(orderlist, '$[0]."menu"') = menu.name where member.id = '${id}'`;// menu count time
 										let user_info_sql = `select * from member where id = '${id}'`;//age name id
 										let options_sql = `SELECT menu, cupSize, shot, syrup, base, whipping, drizzle, ice, price, member_id FROM kiosk.options where member_id ="${id}"`;
-										let ages_sql = `select json_extract(orderlist, '$[*]."menu"')as menu from kiosk.detail join kiosk.member join kiosk.order join kiosk.menu on kiosk.order.number = kiosk.detail.order_number and kiosk.member.id = kiosk.order.member_id and json_extract(orderlist, '$[0]."menu"') = menu.name where kiosk.member.age = '${age}' order by time desc limit 50`;
+										let ages_sql = `select json_extract(orderlist, '$[*]."menu"')as menu
+										from kiosk.detail
+										join kiosk.order
+										join kiosk.menu
+										on kiosk.order.number = kiosk.detail.order_number and json_extract(orderlist, '$[0]."menu"') = menu.name
+										where kiosk.order.age between ${age-10} and ${age+10} order by time desc limit 50`;
 										let [rows_history] = await connection.query(history_sql);
 										let [rows_season] = await connection.query(season_sql);
 										let [rows_hot_menu] = await connection.query(hot_menu_sql);
