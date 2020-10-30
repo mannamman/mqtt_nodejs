@@ -586,7 +586,7 @@ ClientCamSignUpComplete.on('connect', () => {
 ClientCancel.on('connect', () => {
 	ClientCancel.subscribe(topics[5], () => {
 		console.log('subscribe on ', topics[1]);
-		ClientCancel.on('message', (topic, message, packet) => {
+		ClientCancel.on('message', async (topic, message, packet) => {
 			console.log('into cancel');
 			// 취소시 일단 올리고 -> delay -> semapore
 			ClientCancel.publish(topics[3], "2", options);
