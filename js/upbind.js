@@ -593,7 +593,7 @@ ClientCancel.on('connect', () => {
 			console.log('now up!');
 			await delay(1000 * 4);
 			console.log('delay done!');
-			semapore = await toggle_semapore();
+			semapore = await toggle_semapore()
 		})
 	})
 })
