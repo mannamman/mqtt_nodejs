@@ -488,7 +488,7 @@ ClientOptions.on('connect',()=>{
 					const insert_value = await make_option(message);
 					console.log(insert_value);
 					try{
-						let insert_options_sql = `insert into options (menu, cupSize, shot, syrup, base, whipping, drizzle, ice, price, member_id) values (${insert_value})`
+						let insert_options_sql = `insert into kiosk.options (menu, cupSize, shot, syrup, base, whipping, drizzle, ice, price, member_id) values (${insert_value})`
 						let [rows_null] = await connection.query(insert_options_sql);
 						console.log('done insert option');
 						connection.release();
