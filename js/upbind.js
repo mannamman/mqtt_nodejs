@@ -518,7 +518,7 @@ ClientOptions.on('connect', () => {
 					let insert_options_sql = `insert into options (menu, cupSize, shot, syrup, base, whipping, drizzle, ice, price, member_id) values (${insert_value})`
 					let [rows_null] = await connection.query(insert_options_sql);
 					console.log('done insert option');
-					connection.release();{"base":"NULL","cupSize":"Grande","drizzle":"NULL","ice":"NULL","ishot":"hot","menuName":"매직 팝 스플래쉬 피지오","price":"7100","shot":"NULL","syrup":"2 pump","whipping":"NULL"}
+					connection.release();
 
 				}
 				catch (e) {
