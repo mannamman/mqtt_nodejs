@@ -1,0 +1,7 @@
+https://m.blog.naver.com/PostView.nhn?blogId=simjk98&logNo=221638492645&proxyReferer=https:%2F%2Fwww.google.co.kr%2F	//이거에서 digitval은 빼야함
+https://global.sharp/products/device/lineup/data/pdf/datasheet/gp2y0a21yk_e.pdf						//적외선센서 data sheet
+https://wikidocs.net/3172												//라즈베리파이 GPIO
+https://pdf1.alldatasheet.com/datasheet-pdf/view/304558/MICROCHIP/MCP3008-I/P.html					//mcp3008 data sheet
+https://tutorials-raspberrypi.com/infrared-distance-measurement-with-the-raspberry-pi-sharp-gp2y0a02yk0f/			//조립도움
+http://mechasolutionwiki.com/index.php?title=ADC%EB%A5%BC_%EC%9D%B4%EC%9A%A9%ED%95%B4_%EC%A1%B0%EB%8F%84%EC%84%BC%EC%84%9C_%EC%82%AC%EC%9A%A9%ED%95%98%EA%B8%B0_(%ED%8C%8C%EC%9D%B4%EC%8D%AC) //xfer2 설명
+https://www.limulo.net/website/coding/physical-computing/sharp-linearization.html						//거리 구하는 공식
